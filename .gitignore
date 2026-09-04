@@ -63,3 +63,10 @@ rsconnect/
 
 # Generated outputs
 /05_output/
+
+# R / Quarto / editor files
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+.quarto/
