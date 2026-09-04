@@ -47,3 +47,19 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Literature PDFs: local only
+/01_lit/pdfs/
+
+# Data: local only unless explicitly added later
+/03_data/raw/
+/03_data/external/
+/03_data/interim/
+/03_data/processed/
+
+# Temporary Office files
+~$*.xlsx
+~$*.docx
+
+# Generated outputs
+/05_output/
