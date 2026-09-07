@@ -40,7 +40,12 @@ vignettes/*.pdf
 .Renviron
 
 # pkgdown site
-docs/
+# Ignore docs content by default
+/docs/*
+
+# Allow selected public figures
+!/docs/figures/
+!/docs/figures/**
 
 # translation temp files
 po/*~
