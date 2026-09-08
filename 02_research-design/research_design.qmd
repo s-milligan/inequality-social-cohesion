@@ -76,21 +76,15 @@ The main contextual exposure is country-level inequality in equivalised househol
 
 The preferred operationalisation is the **Gini coefficient**.
 
-The final source of the Gini series has not yet been fixed. Candidate sources include:
+The primary inequality measure is the disposable-income Gini coefficient from the **Standardized World Income Inequality Database (SWIID), version 9.92**.
 
-* OECD Income Distribution Database
-* Standardized World Income Inequality Database (SWIID)
+SWIID is used as the primary series because it provides complete country-year coverage for the usable ESS Rounds 1–9 analytical sample. Coverage checks showed that a one-year-lagged SWIID Gini was available for all 374 ESS country × interview-year cells with known interview year.
 
-The choice will be based on:
+The **OECD Income Distribution Database (IDD)** will be used as a robustness measure. Exact one-year-lagged OECD coverage was available for 274 of 374 ESS country × interview-year cells, representing approximately 71% of respondents. Missing OECD coverage is geographically uneven and disproportionately affects several Eastern and Southeastern European countries.
 
-* conceptual comparability of the measure;
-* country coverage;
-* temporal coverage;
-* frequency of observations;
-* extent of interpolation or imputation required;
-* comparability across countries and over time.
+The use of SWIID therefore preserves the wider European scope of the analysis, while OECD provides an important robustness check using a more directly observed inequality series.
 
-Preference will be given to the most directly observed and harmonised measure that provides sufficient coverage of the ESS country-period sample.
+Because SWIID values are model-based estimates with associated uncertainty, robustness analyses will consider the implications of this measurement uncertainty rather than treating the summary-series estimates as perfectly observed.
 
 # Survey data
 
@@ -114,29 +108,31 @@ No fixed list of countries will be imposed before this coverage assessment.
 
 # Time structure and contextual matching
 
-The contextual unit will be the **country-period**.
+# Time structure and contextual matching
 
-ESS rounds frequently span more than one calendar year. Contextual variables will therefore not automatically be assigned using the nominal ESS round year.
+The contextual survey unit is the **country-round**.
 
-Data preparation will first document:
+ESS fieldwork frequently spans two calendar years. In the Rounds 1–9 sample, a majority of country-rounds contain interviews conducted in more than one calendar year. Contextual variables are therefore not assigned using a single nominal ESS round year.
 
-* country;
-* ESS round;
-* interview year;
-* fieldwork period;
-* number of respondents by country and interview year.
+Instead, annual inequality values are aggregated to the country-round level using the observed proportion of respondents interviewed in each calendar year.
 
-The preferred temporal specification for inequality will initially be a **lagged measure**, linking social trust measured at time \(t\) to inequality measured at approximately \(t-1\).
+For example, if 80% of respondents in a country-round were interviewed in 2016 and 20% in 2017, the one-year-lagged inequality exposure is:
 
-Conceptually:
+\[
+0.8 \times Gini_{2015} + 0.2 \times Gini_{2016}
+\]
 
-$$
+The primary inequality specification uses a **one-year lag**, linking social trust measured during fieldwork at time \(t\) to inequality measured approximately one year earlier:
+
+\[
 Inequality_{c,t-1} \rightarrow Trust_{i,c,t}
-$$
+\]
 
-Contemporaneous inequality will be examined as an alternative specification.
+Contemporaneous inequality will be examined as a robustness specification.
 
-The exact matching rule will be determined after inspecting the temporal resolution and missingness of the available inequality series.
+The country-round remains the contextual unit rather than splitting individual ESS rounds into separate country-year surveys. This preserves the survey structure while incorporating actual fieldwork timing into the contextual exposure.
+
+One unresolved timing case remains: Estonia in ESS Round 5 lacks usable interview-year information in the downloaded timing variables. It is retained in the underlying ESS dataset but currently lacks a constructed inequality exposure.
 
 # Data structure
 
@@ -276,18 +272,19 @@ A second outcome will be pursued if it:
 
 # Robustness and sensitivity analyses
 
-Likely robustness checks include:
+Planned robustness checks include:
 
-* alternative inequality datasets;
-* contemporaneous versus lagged inequality;
-* alternative treatment of ESS rounds and interview years;
-* inclusion of later ESS rounds where comparability permits;
-* alternative individual-level adjustment sets;
-* alternative country-level adjustment sets;
-* alternative survey-weighting strategies;
-* three-item social-trust scale rather than `ppltrst` alone;
-* influence of individual countries or country-periods;
-* alternative specifications of time trends.
+- OECD IDD rather than SWIID inequality;
+- contemporaneous rather than one-year-lagged inequality;
+- sensitivity to SWIID measurement uncertainty;
+- alternative treatment of ESS fieldwork timing;
+- inclusion of later ESS rounds where survey-mode comparability permits;
+- alternative individual-level adjustment sets;
+- alternative country-level adjustment sets;
+- alternative survey-weighting strategies;
+- a three-item trust/fairness/helpfulness scale rather than `ppltrst` alone;
+- influence of individual countries or country-periods;
+- alternative specifications of common temporal trends.
 
 The final robustness strategy will be specified after the primary analytical dataset and baseline model have been established.
 
@@ -305,16 +302,27 @@ The first empirical tasks are:
 
 # Open design decisions
 
-The following decisions remain deliberately unresolved:
+The following decisions remain unresolved:
 
-* final inequality data source;
-* exact lag structure for inequality;
-* treatment of country-periods spanning two interview years;
-* final country inclusion criteria;
-* weighting strategy;
-* exact multilevel random-effects specification;
-* operationalisation of political discourse;
-* inclusion of perceived social conflict in the same article;
-* inclusion of ESS Rounds 10 and later in the primary or sensitivity sample.
+- treatment of SWIID estimation uncertainty in the final models;
+- final survey-weighting strategy for the multilevel analysis;
+- exact multilevel random-effects specification;
+- final individual-level adjustment set;
+- final macro-level adjustment set;
+- operationalisation of political discourse;
+- inclusion of perceived social conflict in the same article;
+- inclusion of ESS Rounds 10 and later in the primary or sensitivity sample;
+- treatment of the Estonia Round 5 timing anomaly.
 
-These decisions should be resolved through explicit theoretical reasoning and empirical coverage checks rather than fixed in advance for convenience.
+The following decisions have now been made provisionally:
+
+- ESS Rounds 1–9 form the baseline survey sample;
+- `ppltrst` is the primary social-trust outcome;
+- SWIID is the primary inequality source;
+- OECD IDD is the principal inequality robustness source;
+- the primary inequality exposure is lagged by one year;
+- contextual inequality is aggregated to country-rounds using interview-year respondent shares;
+- within-country inequality variation is the primary estimand;
+- between-country inequality is estimated separately.
+
+These decisions will be (or have been) resolved through explicit theoretical reasoning and empirical coverage checks rather than fixed in advance for convenience.

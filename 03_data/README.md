@@ -1,13 +1,18 @@
-# Data README
+# Data
 
-This folder contains all data used in the project, including raw data, intermediate files, processed analytical datasets, and documentation.
+This directory contains the local data workflow for the project.
+
+The public repository does not redistribute the raw survey or inequality datasets. Instead, it documents the sources, versions, access conditions, and scripts required to reproduce the analytical workflow.
 
 ## Folder structure
 
 ```text
 03_data/
 ├── raw/
-├── external/
+│   ├── ess/
+│   └── inequality/
+│       ├── oecd/
+│       └── swiid/
 ├── interim/
 ├── processed/
 └── metadata_codebooks/
@@ -15,139 +20,210 @@ This folder contains all data used in the project, including raw data, intermedi
 
 ## Repository policy
 
-The full folder structure is used locally, but not all data files are tracked in GitHub.
+The full data structure is used locally, but the underlying datasets are not tracked in Git.
 
 By default:
 
-- `raw/`, `external/`, and `interim/` are excluded from version control.
-- `processed/` files are included only when redistribution is permitted and the files are suitable for repository storage.
-- `metadata_codebooks/` documentation is normally tracked.
-- Sensitive, restricted, licensed, or personally identifying data must never be committed.
+- `raw/` is local only;
+- `interim/` is local only;
+- `processed/` is local only;
+- metadata and documentation may be tracked where useful;
+- restricted, licensed, copyrighted, sensitive, or personally identifying data must never be committed.
 
-Where source data cannot be shared, this README and the accompanying metadata should provide enough information for authorised users to locate the source data and reproduce the analytical workflow.
+The public repository contains the code needed to recreate intermediate and processed files from locally available source data.
 
-## raw/
+## Current data sources
 
-This folder contains the original data files exactly as received or downloaded.
+### European Social Survey
 
-Files in this folder should not be edited manually. Any changes to the data should be made through scripts stored in the `04_code/` folder.
+**Source:** European Social Survey  
+**Rounds:** 1–9  
+**Approximate fieldwork period:** 2002/03–2018/19  
+**Format used locally:** Stata `.dta` extract  
+**Local location:** `03_data/raw/ess/`
 
-For each raw data file, document the following where possible:
+The ESS provides the individual-level survey data used in the primary analysis.
+
+The current extract contains variables required for:
+
+- respondent and survey identification;
+- interview timing;
+- generalized social trust;
+- fairness and helpfulness;
+- age and gender;
+- education;
+- labour-force status;
+- household economic position;
+- migration/background indicators;
+- survey weights.
+
+The primary outcome is:
+
+- `ppltrst`: generalized social trust, measured on a 0–10 scale.
+
+Related items retained for secondary or robustness analyses include:
+
+- `pplfair`
+- `pplhlp`
+
+ESS fieldwork often spans two calendar years. Interview-year information is therefore used to construct country-round contextual exposures rather than assigning each round a single nominal year.
+
+Raw ESS data are not redistributed through this repository.
+
+### Standardized World Income Inequality Database
+
+**Source:** Standardized World Income Inequality Database (SWIID)  
+**Version:** 9.92  
+**Release:** April 2026  
+**Primary variable:** disposable-income Gini (`gini_disp`)  
+**Local location:** `03_data/raw/inequality/swiid/`
+
+SWIID is the primary inequality source for the current analysis.
+
+It was selected because the one-year-lagged disposable-income Gini provides complete coverage of all usable ESS country × interview-year cells in Rounds 1–9.
+
+The summary dataset is used for coverage checks and construction of preliminary country-round exposure measures.
+
+Because SWIID estimates are model-based and include uncertainty, the final modelling strategy should account for that uncertainty rather than treating the summary-series point estimates as perfectly observed.
+
+### OECD Income Distribution Database
+
+**Source:** OECD Income Distribution Database (IDD)  
+**Primary measure:** disposable-income Gini  
+**Local location:** `03_data/raw/inequality/oecd/`
+
+OECD IDD is used as the principal robustness and validation source for inequality.
+
+For the ESS Rounds 1–9 sample, exact one-year-lagged OECD Gini coverage is substantially less complete than SWIID coverage and is uneven across countries.
+
+The OECD series is therefore not used as the primary exposure, but it provides an important comparison based more closely on directly observed national inequality statistics.
+
+## Contextual matching
+
+The contextual survey unit is the **country-round**.
+
+Annual inequality values are matched to actual ESS interview timing.
+
+For country-rounds whose fieldwork spans two calendar years, annual inequality measures are aggregated using the proportion of respondents interviewed in each year.
+
+For example, if:
 
 ```text
-File name:
-Source:
-Date obtained:
-Version:
-Access conditions:
-Original format:
-Notes:
+80% of respondents were interviewed in 2016
+20% of respondents were interviewed in 2017
 ```
 
-## external/
-
-This folder contains additional external data sources used in the project, such as contextual indicators, country-level data, regional classifications, policy measures, or lookup tables.
-
-The `raw/` folder contains the principal study data in their original form. The `external/` folder contains supplementary datasets, classifications,
-lookup tables, and contextual indicators obtained from other sources.
-
-Examples may include:
+then the one-year-lagged inequality exposure is:
 
 ```text
-country-level indicators
-regional classifications
-survey metadata
-population statistics
-macro-level measures
-crosswalks or harmonisation tables
+0.80 × Gini(2015) + 0.20 × Gini(2016)
 ```
 
-## interim/
+The primary specification uses a one-year lag.
 
-This folder contains temporary or intermediate data files created during data cleaning, merging, restructuring, or harmonisation.
+Contemporaneous inequality measures are retained for robustness analyses.
 
-These files are generated from scripts and should be reproducible from the raw and external data.
+## Interim data
 
-Intermediate files may be useful for checking the workflow, but they should not usually be cited as final analytical datasets.
+The `interim/` directory contains generated diagnostic and merge files.
 
-## processed/
-
-This folder contains cleaned and analysis-ready datasets.
-
-These files should be generated by documented scripts and should be suitable for descriptive analysis, modelling, tables, and figures.
-
-Each processed dataset should have a corresponding note explaining:
+Current examples include:
 
 ```text
-How it was created
-Which raw or external files were used
-Which script generated it
-Which observations or variables were excluded
-Which variables were constructed or recoded
-Date of creation
+ess_country_round_year_coverage.csv
+ess_country_round_coverage.csv
+inequality_coverage_summary.csv
+inequality_coverage_by_country.csv
+ess_inequality_coverage.csv
+ess_country_round_inequality.csv
+ess_analysis_missingness.csv
+ess_country_round_trust.csv
 ```
 
-## metadata_codebooks/
+These files are generated by scripts under `04_code/01_import-clean/`.
 
-This folder contains documentation needed to understand and reuse the data.
+They are not tracked in Git because they can be recreated from the documented source data and code.
 
-Possible contents include:
+## Processed data
+
+The `processed/` directory contains analysis-ready datasets generated from the raw and interim data.
+
+The current primary processed file is:
 
 ```text
-codebooks
-variable lists
-data dictionaries
-harmonisation notes
-missing value documentation
-survey wave documentation
-country or region coding schemes
-measurement notes
+ess_analysis.rds
+```
+
+It contains cleaned ESS individual-level variables merged with country-round inequality measures.
+
+This file is generated by:
+
+```text
+04_code/01_import-clean/04_clean_ess_analysis.R
+```
+
+Processed data remain local and are not redistributed through the public repository.
+
+## Data-preparation workflow
+
+The current workflow is:
+
+```text
+ESS raw extract
+    ↓
+ESS country × round × interview-year coverage
+    ↓
+SWIID and OECD inequality coverage
+    ↓
+country-round inequality exposure construction
+    ↓
+ESS variable cleaning and recoding
+    ↓
+merge of individual and contextual data
+    ↓
+analysis-ready ESS dataset
+```
+
+The corresponding scripts are:
+
+```text
+04_code/01_import-clean/
+├── 01_ess_coverage.R
+├── 02_inequality_coverage.R
+├── 03_construct_inequality_exposure.R
+└── 04_clean_ess_analysis.R
 ```
 
 ## Data handling principles
 
-1. Raw data should remain unchanged.
-2. All data cleaning and transformation should be scripted.
-3. Processed data should be reproducible from the raw and external data.
-4. Variable construction decisions should be documented.
-5. Any exclusions, recodes, harmonisation decisions, or weighting decisions should be recorded.
-6. Sensitive or restricted data should not be shared or committed to public repositories.
+1. Raw data remain unchanged.
+2. All cleaning and transformations are scripted.
+3. Intermediate and processed data must be reproducible from source files.
+4. Variable-construction decisions are documented in code and research-design files.
+5. Survey timing is based on actual interview timing rather than nominal round year where possible.
+6. Raw or licensed data are not redistributed unless redistribution is explicitly permitted.
+7. Only data products with a clear reproducibility or dissemination purpose should be considered for inclusion in the public repository.
 
-## Reproducibility notes
+## Known data issues
 
-The expected workflow is:
+### Estonia, ESS Round 5
 
-```text
-raw data + external data
-→ cleaning and harmonisation scripts
-→ interim data
-→ processed analytical data
-→ tables, figures, and models
-```
+Interview-year information is currently unavailable in the timing variables used for Estonia in Round 5.
 
-The relevant scripts are stored in `04_code/`.
+The observations are retained in the individual-level ESS dataset, but no country-round inequality exposure is currently assigned.
 
-## Data access and restrictions
+This issue should be resolved from ESS country-specific fieldwork documentation before the final analytical sample is fixed.
 
-Note any restrictions on data access here.
+### OECD coverage
 
-```text
-Can the data be shared?
-Are there licence restrictions?
-Are there confidentiality restrictions?
-Does the data contain personal or sensitive information?
-Where can authorised users obtain the data?
-```
+OECD inequality coverage is incomplete for a substantial number of ESS country-year observations and is geographically uneven.
 
-## Data log
+This is the main reason SWIID is currently used as the primary inequality source.
 
-Use this section to record major changes to the data.
+## Reproducibility
 
-```text
-Date:
-Change:
-File affected:
-Script used:
-Reason:
-Initials:
-```
+Scripts use project-relative paths via the `here` package.
+
+Once authorised users have obtained the required source data and placed them in the expected local directories, the analytical workflow should be reproducible by running the scripts in numerical order.
+
+Software and package versions will be documented separately as the analysis stabilises.

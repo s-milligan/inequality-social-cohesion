@@ -1,218 +1,75 @@
-# Code README
+# Code
 
-This folder contains all scripts used to import, clean, transform, analyse, and reproduce the results of the project.
+This directory contains the reproducible R workflow for the project.
 
-## Folder structure
+The code is organised by analytical stage rather than by data source.
+
+## Structure
 
 ```text
 04_code/
-├── 00_setup/
 ├── 01_import-clean/
-├── 02_construct-vars/
-├── 03_descriptives/
-├── 04_models/
-├── 05_robustness-tests/
-└── 99_functions/
+│   ├── 01_ess_coverage.R
+│   ├── 02_inequality_coverage.R
+│   ├── 03_construct_inequality_exposure.R
+│   └── 04_clean_ess_analysis.R
+│
+├── 02_descriptives/
+│   ├── 01_trust_inequality_descriptives.R
+│   └── 02_trends.R
+│
+└── 03_models/
+    └── [model scripts added as analysis develops]
 ```
 
-## 00_setup/
+## Workflow
 
-This folder contains scripts that define the project environment.
+### 01_import-clean
 
-Typical contents include:
+The import and cleaning scripts:
 
-```text
-package loading
-global settings
-file paths
-project parameters
-custom themes for tables or figures
-setup checks
-```
+1. establish ESS country × round × interview-year coverage;
+2. compare OECD IDD and SWIID inequality coverage;
+3. construct country-round inequality exposures using actual interview timing;
+4. clean the individual-level ESS data and merge contextual inequality measures.
 
-These scripts should be run before the main analysis workflow.
+The resulting analytical datasets are stored locally under `03_data/processed/` and are not tracked in Git.
 
-## 01_import-clean/
+### 02_descriptives
 
-This folder contains scripts that import raw data and perform initial cleaning.
+The descriptive scripts examine:
 
-Typical tasks include:
+- between-country associations between inequality and social trust;
+- within-country deviations in inequality and trust;
+- trends in trust and inequality across ESS rounds;
+- country-specific trust trajectories.
 
-```text
-reading raw files
-renaming variables
-standardising formats
-checking missing values
-filtering invalid cases
-reshaping data
-merging basic files
-saving interim datasets
-```
+Routine generated figures are saved locally under `05_output/`.
 
-Scripts in this folder should read from `03_data/raw/` and `03_data/external/`, then write to `03_data/interim/`.
+Selected public-facing figures may be copied to `docs/figures/` and tracked in Git.
 
-## 02_construct-vars/
+### 03_models
 
-This folder contains scripts that construct analytical variables.
+This directory will contain the statistical models.
 
-Typical tasks include:
+The initial modelling sequence will estimate multilevel within-between models that distinguish:
 
-```text
-recoding variables
-creating indices or scales
-harmonising measures across countries, waves, or datasets
-constructing treatment or exposure variables
-creating weights or derived measures
-saving analysis-ready datasets
-```
+- persistent differences in inequality between countries;
+- deviations from countries' own typical inequality levels over time.
 
-Scripts in this folder should usually read from `03_data/interim/` and write to `03_data/processed/`.
+The first models will progressively add:
 
-## 03_descriptives/
+- within- and between-country inequality;
+- ESS round effects;
+- individual-level covariates;
+- contextual covariates.
 
-This folder contains scripts for descriptive analysis.
+Later analyses will assess alternative inequality measures, survey weighting, political-discourse moderation, and other robustness specifications.
 
-Typical contents include:
+## Reproducibility
 
-```text
-sample descriptions
-missing data summaries
-variable distributions
-cross-tabulations
-descriptive tables
-exploratory figures
-```
+Scripts use project-relative paths via the `here` package.
 
-Outputs should be saved in `05_outputs/tables/`, `05_outputs/figures/`, or `05_outputs/logs/`.
+Raw data, interim datasets, processed analytical files, and routine generated outputs are excluded from Git. The repository contains the code required to recreate these objects from locally available source data.
 
-## 04_models/
-
-This folder contains scripts for the main statistical models.
-
-Typical contents include:
-
-```text
-main regression models
-multilevel models
-panel models
-difference-in-differences models
-mediation or moderation models
-model comparison scripts
-```
-
-Model outputs should be saved in `05_outputs/model_outputs/`, with publication-ready tables saved in `05_outputs/tables/`.
-
-## 05_robustness-tests/
-
-This folder contains scripts for sensitivity analyses and robustness checks.
-
-Typical contents include:
-
-```text
-alternative model specifications
-alternative variable operationalisations
-alternative samples
-different weighting strategies
-different clustering or standard error assumptions
-placebo tests
-subgroup analyses
-influence diagnostics
-```
-
-Each robustness check should be named clearly enough to identify what is being tested.
-
-## 99_functions/
-
-This folder contains reusable functions used across multiple scripts.
-
-Functions stored here should be general enough to be used in more than one part of the project.
-
-Examples include:
-
-```text
-data cleaning helpers
-plotting functions
-model extraction functions
-table formatting functions
-custom recoding functions
-```
-
-## Suggested script naming convention
-
-Use numbered script names to make the workflow clear.
-
-```text
-00_load-packages.R
-01_import-survey-data.R
-02_clean-survey-data.R
-03_construct-analysis-variables.R
-04_descriptive-tables.R
-05_main-models.R
-06_robustness-alternative-measures.R
-```
-
-For scripts with dates or author initials, use a consistent format.
-
-```text
-2026-07-01_main-models_SM.R
-2026-07-01_robustness-checks_SM.R
-```
-
-## Expected workflow
-
-The general code workflow is:
-
-```text
-00_setup/
-→ 01_import-clean/
-→ 02_construct-vars/
-→ 03_descriptives/
-→ 04_models/
-→ 05_robustness-tests/
-```
-
-Reusable functions from `99_functions/` may be sourced by scripts at any stage.
-
-## Reproducibility principles
-
-1. Scripts should run from top to bottom without manual intervention.
-2. File paths should be relative to the project root where possible.
-3. Scripts should not overwrite raw data.
-4. Intermediate and processed data should be generated by code.
-5. Outputs should be saved automatically to the appropriate folder.
-6. Important analytical decisions should be commented in the code or documented in the project notes.
-7. Random processes should use a set seed.
-8. Package versions should be documented where possible.
-
-## Output locations
-
-Tables should be saved in:
-
-```text
-05_outputs/tables/
-```
-
-Figures should be saved in:
-
-```text
-05_outputs/figs/
-```
-
-Model objects, logs, and diagnostic outputs should be saved in:
-
-```text
-05_outputs/model_output/
-05_outputs/logs/
-```
-
-## Code log
-
-Use this section to record major changes to the code.
-
-```text
-Date:
-Script:
-Change:
-Reason:
-Initials:
-```
+Scripts are intended to be run in numerical order within each directory unless otherwise documented.
