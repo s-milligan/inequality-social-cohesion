@@ -81,8 +81,8 @@ expected_vars <- c(
   "essround",
   "cntry",
   "idno",
-  "inwyys",
-  "inwmms",
+  "inwds",
+  "inwde",
   "mode",
 
   # trust
@@ -251,65 +251,79 @@ get_labelled_factor <- function(
 # 5. Standardise diagnostic variables ------------------------------------
 
 prepare_post9 <- function(
-  dat,
-  round_number
+    dat,
+    round_number
 ) {
-
+  
+  inwds <- dat[["inwds"]]
+  
+  if (!inherits(inwds, c("POSIXct", "POSIXt", "Date"))) {
+    stop(
+      "inwds was not imported as a date/time variable. Class: ",
+      paste(class(inwds), collapse = ", ")
+    )
+  }
+  
   tibble(
     essround =
       get_numeric(
         dat,
         "essround"
       ),
-
+    
     cntry =
       get_character(
         dat,
         "cntry"
       ),
-
+    
     idno =
       get_numeric(
         dat,
         "idno"
       ),
-
+    
     interview_year =
-      get_numeric(
-        dat,
-        "inwyys"
+      as.numeric(
+        format(
+          inwds,
+          "%Y"
+        )
       ),
-
+    
     interview_month =
-      get_numeric(
-        dat,
-        "inwmms"
+      as.numeric(
+        format(
+          inwds,
+          "%m"
+        )
       ),
-
+    
     mode =
       get_labelled_factor(
         dat,
         "mode"
       ),
-
+    
     ppltrst =
       get_numeric(
         dat,
         "ppltrst"
       ),
-
+    
     pplfair =
       get_numeric(
         dat,
         "pplfair"
       ),
-
+    
     pplhlp =
       get_numeric(
         dat,
         "pplhlp"
       )
   ) |>
+    
     mutate(
       # If ESSROUND is unexpectedly absent,
       # retain the known source round.
@@ -760,7 +774,41 @@ print(
   n = Inf
 )
 
-# 14. Save diagnostic outputs --------------------------------------------
+# 14. Interview mode summary ---------------------------------------------
+
+mode_summary <- post9 |>
+  count(
+    essround,
+    cntry,
+    mode,
+    name = "n_respondents"
+  ) |>
+  group_by(
+    essround,
+    cntry
+  ) |>
+  mutate(
+    share =
+      n_respondents /
+      sum(n_respondents)
+  ) |>
+  ungroup() |>
+  arrange(
+    essround,
+    cntry,
+    desc(n_respondents)
+  )
+
+cat(
+  "\nInterview mode by country and round:\n"
+)
+
+print(
+  mode_summary,
+  n = Inf
+)
+
+# 15. Save diagnostic outputs --------------------------------------------
 
 dir.create(
   here(
@@ -831,5 +879,14 @@ write_csv(
     "03_data",
     "interim",
     "ess_post9_issues.csv"
+  )
+)
+
+write_csv(
+  mode_summary,
+  here(
+    "03_data",
+    "interim",
+    "ess_post9_mode_summary.csv"
   )
 )
