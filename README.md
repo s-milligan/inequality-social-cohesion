@@ -50,6 +50,12 @@ The corresponding within-country relationship is much weaker at the descriptive 
 
 These figures are exploratory and should not be interpreted as causal estimates.
 
+### Methodological documentation
+
+Complex or consequential analysis steps may have companion Quarto notebooks in `docs/methods/`.
+
+These notebooks reproduce the relevant workflow while documenting methodological decisions, diagnostics, assumptions, and interpretation. The corresponding executable R scripts remain in `04_code/`.
+
 ## Repository structure
 
 ```text
@@ -70,3 +76,4 @@ These figures are exploratory and should not be interpreted as causal estimates.
 
 docs/
     figures/                Selected public-facing figures
+    methods/                Reproducible methodological notebooks
