@@ -1,0 +1,897 @@
+---
+title: "ESS political exposure and party linkage"
+subtitle: "Construction and diagnostics for ESS Rounds 1–11"
+date: today
+date-format: "10.09.2026"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    code-tools: true
+    df-print: paged
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: source
+---
+
+## Purpose
+
+This notebook documents the construction of respondent-level political variables from a supplementary European Social Survey (ESS) extract covering Rounds 1–11.
+
+The supplement was downloaded because the original project extract deliberately contained only the variables required for the initial inequality and social-trust analyses. It did not contain party vote, party closeness, political interest, ideology, redistribution preferences, immigration attitudes, or political trust.
+
+The immediate goals are to:
+
+1. retain the existing ESS analysis data as the backbone of the project;
+2. prepare a separate respondent-level political supplement that can later be merged by `essround`, `cntry`, and `idno`;
+3. harmonise the large number of country- and round-specific ESS party variables into one preferred party-vote record and one party-closeness record per respondent;
+4. construct a small set of transparent individual-level political variables;
+5. assess how much of the ESS sample can be linked to a named political party; and
+6. produce a compact ESS party inventory for later matching to V-Party.
+
+The notebook does not yet attach V-Party measures of divisive political discourse. It prepares the ESS side of that linkage.
+
+## Setup
+
+```{r}
+library(dplyr)
+library(haven)
+library(here)
+library(stringr)
+```
+
+## 1. Import the supplementary ESS political extract
+
+The supplementary file contains the political variables for all 11 ESS rounds. Keeping these variables in a separate raw file avoids expanding the original ESS download while still allowing the political information to be merged later.
+
+```{r}
+ess_pol_raw <- read_dta(
+  here(
+    "03_data",
+    "raw",
+    "ess",
+    "ess_rounds1-11_political_variables.dta"
+  )
+)
+```
+
+The current extract contains `r format(nrow(ess_pol_raw), big.mark = ",")` respondents and `r ncol(ess_pol_raw)` variables.
+
+### Basic coverage
+
+```{r}
+basic_summary <- tibble(
+  n_respondents = nrow(ess_pol_raw),
+  n_variables = ncol(ess_pol_raw),
+  first_round = min(ess_pol_raw$essround, na.rm = TRUE),
+  last_round = max(ess_pol_raw$essround, na.rm = TRUE),
+  n_countries = n_distinct(ess_pol_raw$cntry)
+)
+
+basic_summary
+```
+
+```{r}
+sort(unique(ess_pol_raw$essround))
+```
+
+The extract spans all ESS Rounds 1–11.
+
+## 2. Verify respondent identifiers
+
+The intended merge keys are `essround`, `cntry`, and `idno`. Before any reshaping, these must uniquely identify respondents.
+
+```{r}
+key_check <- ess_pol_raw %>%
+  count(essround, cntry, idno) %>%
+  filter(n > 1)
+
+cat("Duplicate respondent keys:", nrow(key_check), "\n")
+stopifnot(nrow(key_check) == 0)
+```
+
+A zero count confirms that the political supplement can later be merged one-to-one onto the existing ESS respondent records.
+
+## 3. Identify the country-specific party variables
+
+ESS party variables are not stored as one harmonised variable across countries and rounds. Instead, the cumulative file contains many country- and round-specific variables.
+
+We distinguish variables beginning `prtv...` (party voted for) from variables beginning `prtcl...` (party respondent feels closest to). The numeric codes in these variables are only local codes. Their **Stata value labels contain the actual party names**, so the labels must be preserved.
+
+```{r}
+party_vote_vars <- names(ess_pol_raw)[
+  grepl("^prtv", names(ess_pol_raw), ignore.case = TRUE)
+]
+
+party_close_vars <- names(ess_pol_raw)[
+  grepl("^prtcl", names(ess_pol_raw), ignore.case = TRUE)
+]
+
+tibble(
+  measure = c("Party vote", "Party closeness"),
+  n_variables = c(length(party_vote_vars), length(party_close_vars))
+)
+```
+
+## 4. Inventory the country-specific party variables
+
+Before collapsing the data, inspect which rounds and countries actually use each variable.
+
+```{r}
+get_var_info <- function(v, type) {
+  x <- ess_pol_raw[[v]]
+  observed <- !is.na(x)
+  var_label <- attr(x, "label")
+
+  if (is.null(var_label)) var_label <- NA_character_
+
+  tibble(
+    variable = v,
+    type = type,
+    label = var_label,
+    n_nonmissing = sum(observed),
+    rounds = paste(sort(unique(ess_pol_raw$essround[observed])), collapse = ", "),
+    countries = paste(
+      sort(unique(as.character(ess_pol_raw$cntry[observed]))),
+      collapse = ", "
+    )
+  )
+}
+
+party_var_inventory <- bind_rows(
+  lapply(party_vote_vars, get_var_info, type = "vote"),
+  lapply(party_close_vars, get_var_info, type = "closeness")
+)
+```
+
+A compact preview is sufficient for the rendered notebook; the complete object remains available interactively.
+
+```{r}
+party_var_inventory %>%
+  filter(n_nonmissing > 0) %>%
+  arrange(type, countries, rounds) %>%
+  slice_head(n = 30)
+```
+
+## 5. Collapse the wide party variables into long form
+
+The raw extract contains hundreds of party columns, most of which are structurally missing for any given respondent. Carrying those columns into the analysis dataset would be cumbersome and unnecessary.
+
+Instead, each observed response is converted into a long-format record containing respondent identifiers, the source ESS variable, the source variable label, the original local numeric code, and the actual party name taken from the Stata value label. This preserves a complete audit trail while reducing the wide country-specific structure.
+
+```{r}
+extract_party_responses <- function(vars, type) {
+  bind_rows(
+    lapply(vars, function(v) {
+      x <- ess_pol_raw[[v]]
+
+      # Tagged ESS nonresponse codes are NA to is.na().
+      # Keep only substantive observed responses here.
+      keep <- !is.na(x)
+      if (!any(keep)) return(NULL)
+
+      var_label <- attr(x, "label")
+      if (is.null(var_label)) var_label <- NA_character_
+
+      tibble(
+        essround = ess_pol_raw$essround[keep],
+        cntry = as.character(ess_pol_raw$cntry[keep]),
+        idno = ess_pol_raw$idno[keep],
+        source_var = v,
+        source_label = var_label,
+        party_code = as.numeric(x[keep]),
+        party_label = as.character(
+          haven::as_factor(x[keep], levels = "default")
+        ),
+        party_measure = type
+      )
+    })
+  )
+}
+
+party_vote_long <- extract_party_responses(
+  party_vote_vars,
+  type = "vote"
+)
+
+party_close_long <- extract_party_responses(
+  party_close_vars,
+  type = "closeness"
+)
+
+tibble(
+  measure = c("Party vote", "Party closeness"),
+  n_records = c(nrow(party_vote_long), nrow(party_close_long))
+)
+```
+
+The current extract yields `r format(nrow(party_vote_long), big.mark = ",")` substantive party-vote records and `r format(nrow(party_close_long), big.mark = ",")` party-closeness records.
+
+## 6. Diagnose multiple party records per respondent
+
+Most respondents have only one relevant party-vote record. Some countries use electoral systems in which ESS asks about more than one vote, so those respondents can have multiple valid records.
+
+```{r}
+vote_records_per_person <- party_vote_long %>%
+  count(essround, cntry, idno, name = "n_vote_records")
+
+close_records_per_person <- party_close_long %>%
+  count(essround, cntry, idno, name = "n_close_records")
+
+vote_record_distribution <- vote_records_per_person %>%
+  count(n_vote_records, name = "n_respondents") %>%
+  arrange(n_vote_records)
+
+close_record_distribution <- close_records_per_person %>%
+  count(n_close_records, name = "n_respondents") %>%
+  arrange(n_close_records)
+
+vote_record_distribution
+close_record_distribution
+```
+
+Party closeness is straightforward: each respondent with a substantive party-closeness response has exactly one such record. Party vote requires additional inspection.
+
+## 7. Locate multiple-ballot systems
+
+```{r}
+vote_multiplicity_by_country <- party_vote_long %>%
+  count(essround, cntry, idno, name = "n_vote_records") %>%
+  count(essround, cntry, n_vote_records, name = "n_respondents") %>%
+  filter(n_vote_records > 1) %>%
+  arrange(desc(n_vote_records), cntry, essround)
+
+vote_multiplicity_by_country
+```
+
+In the current ESS extract, multiple substantive party-vote records are confined to **Germany (`DE`) and Lithuania (`LT`)**.
+
+```{r}
+multi_vote_country_rounds <- vote_multiplicity_by_country %>%
+  distinct(essround, cntry)
+
+multi_vote_sources <- party_vote_long %>%
+  semi_join(
+    multi_vote_country_rounds,
+    by = c("essround", "cntry")
+  ) %>%
+  distinct(essround, cntry, source_var, source_label) %>%
+  arrange(cntry, essround, source_var)
+
+multi_vote_sources
+```
+
+## 8. Define the preferred ballot
+
+For the later V-Party linkage, the goal is to connect a respondent to a **party-level** measure of political discourse. The preferred ballot should therefore represent the respondent's clearest party choice rather than, for example, a constituency-candidate choice.
+
+The audit led to two explicit rules:
+
+- **Germany:** use ballot 2, the party-list *Zweitstimme*;
+- **Lithuania:** use ballot 1, the nationwide party-list vote.
+
+All other countries have only one substantive party-vote record per respondent and require no special ballot rule. Keeping the rule explicit makes the harmonisation transparent and easy to revise.
+
+```{r}
+ballot_rules <- tibble(
+  cntry = c("DE", "LT"),
+  preferred_ballot = c(2L, 1L),
+  rationale = c(
+    "Party-list vote (Zweitstimme)",
+    "Nationwide party-list vote"
+  )
+)
+
+ballot_rules
+```
+
+## 9. Select one preferred party-vote record per respondent
+
+The ballot number is parsed only where needed. The original source variable is retained so every harmonised value can be traced back to the exact ESS variable.
+
+```{r}
+party_vote_selected <- party_vote_long %>%
+  mutate(
+    ballot = case_when(
+      cntry %in% c("DE", "LT") ~
+        as.integer(str_extract(source_var, "[123]$")),
+      TRUE ~ 1L
+    )
+  ) %>%
+  left_join(
+    ballot_rules %>% select(cntry, preferred_ballot),
+    by = "cntry"
+  ) %>%
+  mutate(
+    preferred = case_when(
+      is.na(preferred_ballot) ~ TRUE,
+      ballot == preferred_ballot ~ TRUE,
+      TRUE ~ FALSE
+    )
+  ) %>%
+  filter(preferred) %>%
+  select(
+    essround,
+    cntry,
+    idno,
+    party_vote_code = party_code,
+    party_vote_label = party_label,
+    party_vote_source = source_var
+  )
+
+vote_selected_check <- party_vote_selected %>%
+  count(essround, cntry, idno) %>%
+  filter(n > 1)
+
+tibble(
+  selected_party_vote_records = nrow(party_vote_selected),
+  duplicate_respondents = nrow(vote_selected_check)
+)
+```
+
+The current selection produces `r format(nrow(party_vote_selected), big.mark = ",")` preferred party-vote records and zero duplicates.
+
+## 10. Diagnose respondents lost through preferred-ballot selection
+
+A small number of respondents reported a substantive party vote, but only on a non-preferred ballot. These cases should **not** automatically be reassigned to another ballot because the different ballots do not represent the same construct.
+
+```{r}
+all_vote_respondents <- party_vote_long %>%
+  distinct(essround, cntry, idno)
+
+selected_vote_respondents <- party_vote_selected %>%
+  distinct(essround, cntry, idno)
+
+vote_not_selected <- all_vote_respondents %>%
+  anti_join(
+    selected_vote_respondents,
+    by = c("essround", "cntry", "idno")
+  )
+
+vote_not_selected %>%
+  count(essround, cntry, name = "n") %>%
+  arrange(cntry, essround)
+```
+
+The current rule leaves `r format(nrow(vote_not_selected), big.mark = ",")` respondents without a preferred ballot, equal to `r round(100 * nrow(vote_not_selected) / nrow(all_vote_respondents), 2)`% of respondents with any substantive party-vote record. Given the small share and the substantive difference between ballot types, these respondents are left missing on the preferred party-vote measure.
+
+## 11. Create the harmonised party-closeness record
+
+Party closeness requires no ballot selection because every respondent has at most one substantive record.
+
+```{r}
+party_close_selected <- party_close_long %>%
+  select(
+    essround,
+    cntry,
+    idno,
+    party_close_code = party_code,
+    party_close_label = party_label,
+    party_close_source = source_var
+  )
+
+party_close_check <- party_close_selected %>%
+  count(essround, cntry, idno) %>%
+  filter(n > 1)
+
+tibble(
+  selected_party_close_records = nrow(party_close_selected),
+  duplicate_respondents = nrow(party_close_check)
+)
+```
+
+## 12. Select the ordinary political variables
+
+The supplement also contains individual-level political variables that may later be used to study exposure, alignment, receptivity, or mechanisms. These are kept conceptually separate rather than combined into a single omnibus index.
+
+```{r}
+political_vars <- c(
+  "essround",
+  "cntry",
+  "idno",
+  "vote",
+  "clsprty",
+  "prtdgcl",
+  "polintr",
+  "lrscale",
+  "gincdif",
+  "imbgeco",
+  "imueclt",
+  "imwbcnt",
+  "imsmetn",
+  "imdfetn",
+  "impcntr",
+  "trstprl",
+  "trstplt",
+  "trstprt",
+  "stfdem"
+)
+
+ess_pol_core <- ess_pol_raw %>%
+  select(any_of(political_vars))
+```
+
+| Domain | ESS variables | Interpretation |
+|---|---|---|
+| Political attention | `polintr` | Potential exposure to political discourse |
+| Political alignment | party vote, party closeness, `lrscale` | Party and ideological alignment |
+| Redistribution | `gincdif` | Normative orientation toward income inequality |
+| Immigration | `imbgeco`, `imueclt`, `imwbcnt`, `imsmetn`, `imdfetn`, `impcntr` | Potential receptivity to exclusionary or nativist framing |
+| Political trust / satisfaction | `trstprl`, `trstplt`, `trstprt`, `stfdem` | Potential downstream mechanisms; not intended as routine baseline controls |
+
+## 13. Build the respondent-level political supplement
+
+The harmonised party records are joined to the ordinary political variables by the unique respondent keys.
+
+```{r}
+ess_political <- ess_pol_core %>%
+  left_join(
+    party_vote_selected,
+    by = c("essround", "cntry", "idno")
+  ) %>%
+  left_join(
+    party_close_selected,
+    by = c("essround", "cntry", "idno")
+  )
+
+duplicate_keys <- ess_political %>%
+  count(essround, cntry, idno) %>%
+  filter(n > 1)
+
+tibble(
+  n_respondents = nrow(ess_political),
+  n_variables = ncol(ess_political),
+  duplicate_keys = nrow(duplicate_keys)
+)
+```
+
+The respondent count remains unchanged, confirming that the joins do not duplicate or drop ESS respondents.
+
+## 14. Inspect coverage of the political variables
+
+At this stage, coverage is descriptive. A non-missing response to `vote` is **not the same as having voted**; the actual voter indicator is constructed in the next section.
+
+```{r}
+political_coverage_round <- ess_political %>%
+  group_by(essround) %>%
+  summarise(
+    n = n(),
+    n_vote_item_response = sum(!is.na(vote)),
+    n_party_vote = sum(!is.na(party_vote_label)),
+    n_closeness_item_response = sum(!is.na(clsprty)),
+    n_party_close = sum(!is.na(party_close_label)),
+    n_polintr = sum(!is.na(polintr)),
+    n_lrscale = sum(!is.na(lrscale)),
+    n_gincdif = sum(!is.na(gincdif)),
+    n_immigration_complete = sum(
+      !is.na(imbgeco) &
+        !is.na(imueclt) &
+        !is.na(imwbcnt)
+    ),
+    .groups = "drop"
+  )
+
+political_coverage_round
+```
+
+Coverage of political interest, redistribution, and the immigration battery is high across rounds. Party vote and party closeness are naturally lower because they are conditional on voting and identifying with a party.
+
+## 15. Confirm the coding of the core variables
+
+The Stata labels were inspected before recoding. The relevant coding directions are:
+
+- `vote`: 1 = yes, 2 = no, 3 = not eligible;
+- `clsprty`: 1 = yes, 2 = no;
+- `prtdgcl`: 1 = very close to 4 = not at all close;
+- `polintr`: 1 = very interested to 4 = not at all interested;
+- `lrscale`: 0 = left to 10 = right;
+- `gincdif`: 1 = strongly agree to 5 = strongly disagree with government reducing income differences;
+- `imbgeco`, `imueclt`, `imwbcnt`: 0 = negative evaluation of immigration to 10 = positive evaluation;
+- immigration admission items: 1 = allow many to 4 = allow none;
+- political trust and satisfaction items: 0 = low to 10 = high.
+
+For reproducibility, the original labels remain accessible directly from the `.dta` file:
+
+```{r}
+vars_to_inspect <- c(
+  "vote", "clsprty", "prtdgcl", "polintr", "lrscale", "gincdif",
+  "imbgeco", "imueclt", "imwbcnt", "imsmetn", "imdfetn", "impcntr",
+  "trstprl", "trstplt", "trstprt", "stfdem"
+)
+
+coding_labels <- lapply(
+  vars_to_inspect,
+  function(v) {
+    if (v %in% names(ess_pol_raw)) attr(ess_pol_raw[[v]], "labels") else NULL
+  }
+)
+
+names(coding_labels) <- vars_to_inspect
+```
+
+The `coding_labels` list can be inspected interactively when needed without filling the rendered report with all value labels.
+
+## 16. Recode the core individual-level political variables
+
+The recodes retain the original ESS variables and add clearly named derived variables.
+
+```{r}
+ess_political <- ess_political %>%
+  mutate(
+    voted = case_when(
+      as.numeric(vote) == 1 ~ 1L,
+      as.numeric(vote) == 2 ~ 0L,
+      TRUE ~ NA_integer_
+    ),
+
+    close_to_party = case_when(
+      as.numeric(clsprty) == 1 ~ 1L,
+      as.numeric(clsprty) == 2 ~ 0L,
+      TRUE ~ NA_integer_
+    ),
+
+    # Higher values = greater political interest
+    political_interest = case_when(
+      !is.na(polintr) ~ 5 - as.numeric(polintr),
+      TRUE ~ NA_real_
+    ),
+
+    lr_position = as.numeric(lrscale),
+
+    # 0 = centre, 5 = either extreme
+    lr_extremity = case_when(
+      !is.na(lrscale) ~ abs(as.numeric(lrscale) - 5),
+      TRUE ~ NA_real_
+    ),
+
+    # Higher values = stronger support for reducing income differences
+    redistribution = case_when(
+      !is.na(gincdif) ~ 6 - as.numeric(gincdif),
+      TRUE ~ NA_real_
+    ),
+
+    # Higher values = stronger party attachment
+    party_closeness_strength = case_when(
+      !is.na(prtdgcl) ~ 5 - as.numeric(prtdgcl),
+      TRUE ~ NA_real_
+    )
+  )
+```
+
+The immigration variables are **not yet combined into a scale**. The three evaluative items already run from negative to positive, whereas the admission items run from permissive to restrictive. Any composite should therefore be constructed and tested explicitly rather than mixed casually.
+
+## 17. Assess usable party-linkage coverage
+
+For linkage to V-Party, the relevant denominator is not the full ESS sample. It is respondents who say they voted for party-vote linkage, and respondents who say they feel close to a party for party-closeness linkage.
+
+`Other` is not treated as an identified party because it cannot be matched reliably to a unique V-Party record.
+
+```{r}
+party_linkage_coverage <- ess_political %>%
+  mutate(
+    party_vote_identified =
+      !is.na(party_vote_label) &
+      !grepl("^other", party_vote_label, ignore.case = TRUE),
+
+    party_close_identified =
+      !is.na(party_close_label) &
+      !grepl("^other", party_close_label, ignore.case = TRUE)
+  ) %>%
+  group_by(essround, cntry) %>%
+  summarise(
+    n = n(),
+    n_voters = sum(voted == 1, na.rm = TRUE),
+    n_voters_with_party = sum(
+      voted == 1 & party_vote_identified,
+      na.rm = TRUE
+    ),
+    pct_voters_with_party = 100 * n_voters_with_party / n_voters,
+    n_party_identifiers = sum(close_to_party == 1, na.rm = TRUE),
+    n_identifiers_with_party = sum(
+      close_to_party == 1 & party_close_identified,
+      na.rm = TRUE
+    ),
+    pct_identifiers_with_party =
+      100 * n_identifiers_with_party / n_party_identifiers,
+    .groups = "drop"
+  )
+```
+
+### Round-level coverage
+
+```{r}
+party_linkage_round <- ess_political %>%
+  mutate(
+    party_vote_identified =
+      !is.na(party_vote_label) &
+      !grepl("^other", party_vote_label, ignore.case = TRUE),
+    party_close_identified =
+      !is.na(party_close_label) &
+      !grepl("^other", party_close_label, ignore.case = TRUE)
+  ) %>%
+  group_by(essround) %>%
+  summarise(
+    n = n(),
+    n_voters = sum(voted == 1, na.rm = TRUE),
+    n_voters_with_party = sum(
+      voted == 1 & party_vote_identified,
+      na.rm = TRUE
+    ),
+    pct_voters_with_party = 100 * n_voters_with_party / n_voters,
+    n_party_identifiers = sum(close_to_party == 1, na.rm = TRUE),
+    n_identifiers_with_party = sum(
+      close_to_party == 1 & party_close_identified,
+      na.rm = TRUE
+    ),
+    pct_identifiers_with_party =
+      100 * n_identifiers_with_party / n_party_identifiers,
+    .groups = "drop"
+  )
+
+party_linkage_round
+```
+
+Party-closeness linkage is typically cleaner conditional on identifying with a party, but the vote measure covers more respondents and is tied directly to a specific national election.
+
+### Country-round anomalies
+
+The full object is retained as `party_linkage_coverage`. For a compact diagnostic, inspect country-rounds where fewer than 70% of voters can be assigned to a named party:
+
+```{r}
+low_linkage_country_rounds <- party_linkage_coverage %>%
+  filter(
+    n_voters > 0,
+    pct_voters_with_party < 70
+  ) %>%
+  arrange(pct_voters_with_party)
+
+low_linkage_country_rounds
+```
+
+These cases should be treated as data-availability or item-response issues rather than silently assumed to be equivalent across countries and rounds.
+
+## 18. Decompose party-vote linkage failures
+
+A low linkage rate can arise because a respondent selected `Other` or because the party item has no substantive party response. These are substantively different and should be separated.
+
+```{r}
+vote_linkage_diagnostics <- ess_political %>%
+  mutate(
+    party_vote_other =
+      !is.na(party_vote_label) &
+      grepl("^other", party_vote_label, ignore.case = TRUE),
+    party_vote_named =
+      !is.na(party_vote_label) &
+      !party_vote_other
+  ) %>%
+  filter(voted == 1) %>%
+  group_by(essround, cntry) %>%
+  summarise(
+    n_voters = n(),
+    n_named_party = sum(party_vote_named),
+    n_other_party = sum(party_vote_other),
+    n_no_substantive_party = sum(is.na(party_vote_label)),
+    pct_named_party = 100 * n_named_party / n_voters,
+    pct_other_party = 100 * n_other_party / n_voters,
+    pct_no_substantive_party =
+      100 * n_no_substantive_party / n_voters,
+    .groups = "drop"
+  ) %>%
+  arrange(pct_named_party)
+
+vote_linkage_overall <- vote_linkage_diagnostics %>%
+  summarise(
+    voters = sum(n_voters),
+    named = sum(n_named_party),
+    other = sum(n_other_party),
+    no_substantive_party = sum(n_no_substantive_party),
+    pct_named = 100 * named / voters,
+    pct_other = 100 * other / voters,
+    pct_no_substantive_party = 100 * no_substantive_party / voters
+  )
+
+vote_linkage_overall
+```
+
+In the current extract, `Other` explains only a small share of linkage failure. Most non-linkage occurs because there is no substantive party value on the country-specific party item.
+
+## 19. Check ESS tagged missing values
+
+Because the file is read with `haven`, ESS nonresponse categories can be retained as **tagged missing values**. This is important: an apparent missing party label may reflect an explicit refusal, don't-know response, or another ESS missing category rather than a failure of the harmonisation code.
+
+The extraction deliberately excluded tagged missings from the long party tables because they are not substantive party choices. Here they are audited separately.
+
+```{r}
+get_missing_tags <- function(v) {
+  labs <- attr(ess_pol_raw[[v]], "labels")
+
+  tibble(
+    label = names(labs),
+    tagged_missing = haven::is_tagged_na(labs),
+    tag = haven::na_tag(labs)
+  ) %>%
+    filter(tagged_missing)
+}
+
+missing_tag_map <- get_missing_tags("prtvde2")
+missing_tag_map
+```
+
+This avoids assuming what tags such as `b` and `c` mean; the mapping is taken directly from the file labels.
+
+### Missingness audit examples
+
+Germany Round 1 and Bulgaria Round 9 are useful checks because they represent, respectively, ordinary and relatively low party-linkage coverage.
+
+```{r}
+audit_party_missing <- function(country, round, source_var) {
+  x <- ess_pol_raw[[source_var]]
+
+  voters <- (
+    ess_pol_raw$essround == round &
+      ess_pol_raw$cntry == country &
+      as.numeric(ess_pol_raw$vote) == 1
+  )
+
+  n_missing <- sum(is.na(x[voters]))
+  n_tagged <- sum(haven::is_tagged_na(x[voters]))
+
+  tibble(
+    cntry = country,
+    essround = round,
+    source_var = source_var,
+    n_voters = sum(voters, na.rm = TRUE),
+    n_missing_party_item = n_missing,
+    n_tagged_missing = n_tagged,
+    n_untagged_missing = n_missing - n_tagged
+  )
+}
+
+de1_source <- party_vote_selected %>%
+  filter(cntry == "DE", essround == 1) %>%
+  distinct(party_vote_source) %>%
+  pull(party_vote_source)
+
+bg9_source <- party_vote_selected %>%
+  filter(cntry == "BG", essround == 9) %>%
+  distinct(party_vote_source) %>%
+  pull(party_vote_source)
+
+missingness_examples <- bind_rows(
+  audit_party_missing("DE", 1, de1_source),
+  audit_party_missing("BG", 9, bg9_source)
+)
+
+missingness_examples
+```
+
+The audit confirms that tagged ESS nonresponse codes account for an important share of the apparent missing party records. These cases should therefore not be described simply as failures to locate the appropriate party variable.
+
+## 20. Create the ESS party inventory for V-Party matching
+
+The next stage of the project will link ESS respondents to party-level measures of divisive political discourse from V-Party. The matching problem should be handled at the **country × party-label** level rather than respondent by respondent or country-round-party row by country-round-party row.
+
+First, create an inventory of substantive named-party entries by country and ESS round.
+
+```{r}
+ess_party_inventory <- party_vote_selected %>%
+  filter(
+    !is.na(party_vote_label),
+    !grepl("^other", party_vote_label, ignore.case = TRUE)
+  ) %>%
+  count(
+    cntry,
+    essround,
+    party_vote_label,
+    party_vote_source,
+    name = "n_respondents"
+  ) %>%
+  arrange(
+    cntry,
+    essround,
+    desc(n_respondents),
+    party_vote_label
+  )
+
+tibble(
+  country_round_party_entries = nrow(ess_party_inventory),
+  unique_country_party_labels = ess_party_inventory %>%
+    distinct(cntry, party_vote_label) %>%
+    nrow()
+)
+```
+
+The current extract contains `r format(nrow(ess_party_inventory), big.mark = ",")` country-round-party entries but only `r format(nrow(distinct(ess_party_inventory, cntry, party_vote_label)), big.mark = ",")` unique country × party-label combinations.
+
+That reduction is important: the crosswalk only needs to be reviewed once for each unique country-party label, after which the result can propagate across rounds.
+
+## 21. Build the candidate crosswalk table
+
+The candidate table preserves country, original ESS party label, first and last ESS round in which the label appears, number of rounds, and total number of respondents represented by the label.
+
+```{r}
+ess_party_crosswalk <- ess_party_inventory %>%
+  group_by(cntry, party_vote_label) %>%
+  summarise(
+    first_round = min(essround),
+    last_round = max(essround),
+    n_rounds = n_distinct(essround),
+    n_respondents = sum(n_respondents),
+    .groups = "drop"
+  ) %>%
+  arrange(
+    cntry,
+    desc(n_respondents),
+    party_vote_label
+  )
+
+party_crosswalk_by_country <- ess_party_crosswalk %>%
+  count(
+    cntry,
+    name = "n_unique_party_labels"
+  ) %>%
+  arrange(desc(n_unique_party_labels))
+
+party_crosswalk_by_country
+```
+
+The number of ESS labels is not the same as the number of historically distinct parties. Labels can vary because of renaming, coalition labels, party succession, spelling changes, or coding changes across rounds. The crosswalk must therefore **retain the original ESS label** even after a V-Party identifier is assigned.
+
+## 22. Save the crosswalk candidates
+
+Only the compact candidate table is written to the processed-data directory at this stage. The respondent-level `ess_political` object remains in memory because the V-Party linkage and final variable set have not yet been completed.
+
+```{r}
+dir.create(
+  here("03_data", "processed"),
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+write.csv(
+  ess_party_crosswalk,
+  here(
+    "03_data",
+    "processed",
+    "ess_party_crosswalk_candidates.csv"
+  ),
+  row.names = FALSE
+)
+```
+
+## Summary of decisions
+
+The ESS political-exposure preparation has produced several concrete decisions:
+
+1. The supplementary political extract remains separate from the original ESS raw files. It will later be merged onto the existing analysis data by `essround`, `cntry`, and `idno`.
+2. Party labels, not local numeric codes, are the substantive identifiers. Numeric party codes vary across country-specific variables; the Stata value labels contain the actual party names.
+3. The hundreds of raw party variables are not carried forward. They are collapsed into compact long-form records with the original source variable retained for traceability.
+4. Germany and Lithuania require explicit preferred-ballot rules. Germany uses ballot 2; Lithuania uses ballot 1. Respondents with only a non-preferred ballot are left missing rather than assigned an incomparable vote.
+5. Party closeness is structurally simpler than party vote. Every respondent with a substantive closeness response has only one relevant party record.
+6. Political interest, ideological extremity, redistribution preferences, immigration attitudes, and party attachment remain distinct constructs. They are not combined into an omnibus political-exposure scale.
+7. Party-linkage coverage is evaluated conditionally. Party-vote coverage is assessed among voters, and party-closeness coverage among respondents who identify with a party.
+8. ESS tagged missings are treated as explicit nonresponse, not as linkage failures.
+9. The V-Party matching problem is reduced to a country × party-label crosswalk. The current data contain `r format(nrow(ess_party_crosswalk), big.mark = ",")` candidate country-party labels rather than thousands of respondent- or round-specific matches.
+
+## Next step
+
+The next stage is to import V-Party and link the ESS party labels to stable V-Party party identifiers. The initial target is a party-level measure of opponent demonisation or related divisive political discourse.
+
+The intended workflow is:
+
+```text
+ESS respondent
+    ↓
+preferred party vote / party closeness
+    ↓
+ESS country × party label
+    ↓
+V-Party party identifier
+    ↓
+party-level discourse measure
+```
+
+Only after that linkage is validated should the resulting party-level discourse exposure be merged into the main ESS analysis dataset and used in the multilevel models.

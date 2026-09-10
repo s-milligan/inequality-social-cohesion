@@ -1,0 +1,463 @@
+---
+title: "Constructing country-round inequality exposure"
+subtitle: "Interview-year weighted SWIID and OECD inequality measures for ESS"
+date: today
+date-format: "06.09.2026"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    code-tools: true
+    df-print: paged
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: source
+---
+
+## Purpose
+
+This notebook documents the construction of country-round inequality exposure measures for the *Inequality and social cohesion* project.
+
+The European Social Survey (ESS) is organised in survey rounds, but fieldwork for a given country-round can span more than one calendar year. Because the contextual inequality measures are annual, assigning a single calendar-year value to an ESS country-round can misrepresent the inequality context actually experienced by respondents.
+
+The approach used here therefore:
+
+1. starts from the observed distribution of ESS interviews across calendar years within each country-round;
+2. calculates the share of respondents interviewed in each year;
+3. uses those shares to form weighted country-round inequality measures;
+4. treats SWIID as the provisional primary inequality source;
+5. retains OECD Income Distribution Database (IDD) measures for robustness analyses; and
+6. preserves the full ESS country-round structure even when contextual inequality data are unavailable.
+
+The resulting dataset contains one row per ESS country-round and is saved as:
+
+`03_data/interim/ess_country_round_inequality.csv`
+
+## Setup
+
+```{r}
+library(dplyr)
+library(readr)
+library(here)
+```
+
+## 1. Import the ESS country-round structure
+
+Two previously constructed project files are used.
+
+The first contains the full ESS country-round structure:
+
+```{r}
+country_rounds <- read_csv(
+  here(
+    "03_data",
+    "interim",
+    "ess_country_round_coverage.csv"
+  ),
+  show_col_types = FALSE
+)
+```
+
+The second contains one row per country × ESS round × interview year, already matched to the annual OECD and SWIID inequality series:
+
+```{r}
+coverage <- read_csv(
+  here(
+    "03_data",
+    "interim",
+    "ess_inequality_coverage.csv"
+  ),
+  show_col_types = FALSE
+)
+```
+
+A compact overview of the inputs:
+
+```{r}
+tibble(
+  object = c(
+    "country_rounds",
+    "coverage"
+  ),
+  n_rows = c(
+    nrow(country_rounds),
+    nrow(coverage)
+  ),
+  n_columns = c(
+    ncol(country_rounds),
+    ncol(coverage)
+  )
+)
+```
+
+The distinction between these two inputs matters:
+
+- `country_rounds` defines the **complete ESS country-round universe** used by the project.
+- `coverage` contains the subset of country-round-year observations for which interview-year timing is available and annual inequality measures can be attached.
+
+This allows missing contextual coverage to remain visible rather than causing ESS country-rounds to disappear silently.
+
+## 2. Why interview-year weighting is necessary
+
+Some ESS country-rounds span two calendar years. Suppose, for example, that 80% of interviews in a country-round were completed in 2014 and 20% in 2015. Using only the round's nominal year or a simple average of 2014 and 2015 would give equal influence to both years even though respondents were not interviewed equally across them.
+
+Instead, each interview year receives a weight equal to its share of respondents in the relevant country-round:
+
+$$
+w_{cty} =
+\frac{N_{cty}}
+{\sum_y N_{cty}}
+$$
+
+where:
+
+- $c$ denotes country,
+- $t$ denotes ESS round,
+- $y$ denotes interview year, and
+- $N_{cty}$ is the number of respondents interviewed in year \(y\).
+
+The country-round contextual value is then:
+
+$$
+X_{ct} = \sum_y w_{cty}X_{cy}
+$$
+
+This makes the contextual measure correspond to the observed timing of the ESS interviews.
+
+## 3. Calculate interview-year shares
+
+```{r}
+coverage <- coverage |>
+  group_by(cntry, essround) |>
+  mutate(
+    interview_year_share =
+      n_respondents / sum(n_respondents)
+  ) |>
+  ungroup()
+```
+
+### Verify that the weights sum to one
+
+```{r}
+share_check <- coverage |>
+  group_by(cntry, essround) |>
+  summarise(
+    share_sum = sum(interview_year_share),
+    .groups = "drop"
+  )
+```
+
+```{r}
+share_check |>
+  summarise(
+    min_share_sum = min(share_sum),
+    max_share_sum = max(share_sum),
+    max_absolute_deviation =
+      max(abs(share_sum - 1))
+  )
+```
+
+The construction requires each country-round's interview-year shares to sum to one. The following assertion stops execution if that condition is violated:
+
+```{r}
+stopifnot(
+  all(abs(share_check$share_sum - 1) < 1e-10)
+)
+```
+
+## 4. Aggregate annual inequality to the ESS country-round level
+
+The aggregation creates one row per country-round.
+
+Several pieces of timing information are retained alongside the inequality measures so that the temporal construction remains transparent.
+
+```{r}
+inequality_country_round <- coverage |>
+  group_by(cntry, essround) |>
+  summarise(
+
+    # Fieldwork timing
+    n_respondents_with_year =
+      sum(n_respondents),
+
+    first_interview_year =
+      min(interview_year),
+
+    last_interview_year =
+      max(interview_year),
+
+    mean_interview_year =
+      weighted.mean(
+        interview_year,
+        interview_year_share
+      ),
+
+    # SWIID: primary series
+    gini_swiid_contemp =
+      weighted.mean(
+        gini_swiid_contemp,
+        interview_year_share
+      ),
+
+    gini_swiid_lag1 =
+      weighted.mean(
+        gini_swiid_lag1,
+        interview_year_share
+      ),
+
+    # Average reported SWIID uncertainty.
+    # Diagnostic only; NOT used as an inferential SE.
+    swiid_lag1_se_mean =
+      weighted.mean(
+        gini_swiid_lag1_se,
+        interview_year_share
+      ),
+
+    # OECD: retain a country-round value only when every
+    # interview-year component has observed OECD data.
+    oecd_contemp_complete =
+      all(!is.na(gini_oecd_contemp)),
+
+    oecd_lag1_complete =
+      all(!is.na(gini_oecd_lag1)),
+
+    gini_oecd_contemp =
+      if (all(!is.na(gini_oecd_contemp))) {
+        weighted.mean(
+          gini_oecd_contemp,
+          interview_year_share
+        )
+      } else {
+        NA_real_
+      },
+
+    gini_oecd_lag1 =
+      if (all(!is.na(gini_oecd_lag1))) {
+        weighted.mean(
+          gini_oecd_lag1,
+          interview_year_share
+        )
+      } else {
+        NA_real_
+      },
+
+    .groups = "drop"
+  )
+```
+
+## 5. Interpretation of the constructed variables
+
+### Fieldwork timing
+
+The following variables document how each country-round was formed:
+
+- `n_respondents_with_year`: number of respondents contributing to the interview-year weighting;
+- `first_interview_year`: earliest observed interview year;
+- `last_interview_year`: latest observed interview year;
+- `mean_interview_year`: interview-share weighted mean calendar year.
+
+`mean_interview_year` is useful as a compact description of the effective timing of a country-round, but it is not itself used to look up contextual data.
+
+### SWIID measures
+
+Two SWIID measures are constructed:
+
+- `gini_swiid_contemp`: contemporaneous inequality;
+- `gini_swiid_lag1`: one-year lagged inequality.
+
+SWIID is treated as the provisional primary inequality source because it provides substantially broader country-year coverage than OECD IDD.
+
+The notebook also retains:
+
+- `swiid_lag1_se_mean`
+
+This is the interview-share weighted mean of the SWIID-reported uncertainty measure attached to the lagged Gini values.
+
+It is retained **for diagnostics only**. It is not an inferential standard error for the country-round estimate and should not be used as though it were one. Propagating SWIID uncertainty requires a separate multiple-imputation-style analysis using the SWIID draws.
+
+### OECD measures
+
+OECD IDD is retained for robustness analyses.
+
+A stricter completeness rule is used for OECD aggregation. If a country-round spans multiple interview years, an OECD country-round value is calculated only when **all** contributing interview years have an observed OECD value.
+
+For example, if a country-round has interviews in 2014 and 2015 but OECD data are available only for 2014, the country-round OECD measure is set to missing rather than representing the whole round with the available year alone.
+
+The indicators:
+
+- `oecd_contemp_complete`
+- `oecd_lag1_complete`
+
+make this rule explicit.
+
+## 6. Inspect the aggregated country-round data
+
+```{r}
+inequality_country_round |>
+  arrange(cntry, essround) |>
+  slice_head(n = 20)
+```
+
+A quick summary of coverage before restoring the full ESS structure:
+
+```{r}
+inequality_country_round |>
+  summarise(
+    n_country_rounds = n(),
+    n_swiid_contemp =
+      sum(!is.na(gini_swiid_contemp)),
+    n_swiid_lag1 =
+      sum(!is.na(gini_swiid_lag1)),
+    n_oecd_contemp =
+      sum(!is.na(gini_oecd_contemp)),
+    n_oecd_lag1 =
+      sum(!is.na(gini_oecd_lag1))
+  )
+```
+
+## 7. Restore the full ESS country-round structure
+
+The aggregation above begins from the interview-year coverage file. Any ESS country-round with no usable interview-year information would therefore be absent unless the complete country-round structure were restored explicitly.
+
+At the time this workflow was constructed, **Estonia Round 5** had no usable interview-year information and was absent from `coverage`.
+
+The country-round inequality data are therefore joined back onto the full ESS country-round table:
+
+```{r}
+country_round_inequality <- country_rounds |>
+  select(
+    cntry,
+    essround,
+    n_respondents,
+    first_year,
+    last_year,
+    n_interview_years,
+    crosses_year
+  ) |>
+  left_join(
+    inequality_country_round,
+    by = c("cntry", "essround")
+  ) |>
+  arrange(cntry, essround)
+```
+
+This design choice ensures that missing contextual information remains an explicit missing value rather than silently changing the ESS country-round sample.
+
+## 8. Diagnostics
+
+### Overall country-round coverage
+
+```{r}
+coverage_summary <- tibble(
+  measure = c(
+    "ESS country-rounds",
+    "Country-rounds with SWIID lagged Gini",
+    "Country-rounds with complete OECD lagged Gini"
+  ),
+  n = c(
+    nrow(country_round_inequality),
+    sum(!is.na(
+      country_round_inequality$gini_swiid_lag1
+    )),
+    sum(!is.na(
+      country_round_inequality$gini_oecd_lag1
+    ))
+  )
+)
+
+coverage_summary
+```
+
+### Missing SWIID country-rounds
+
+```{r}
+missing_swiid <- country_round_inequality |>
+  filter(is.na(gini_swiid_lag1)) |>
+  select(
+    cntry,
+    essround,
+    n_respondents,
+    first_year,
+    last_year
+  )
+
+missing_swiid
+```
+
+The explicit display of missing country-rounds is an important diagnostic because the main analysis should not silently lose observations through contextual-data merges.
+
+## 9. Compare SWIID and OECD where both are observed
+
+OECD IDD is not used as the primary source, but overlapping country-rounds provide a useful robustness check on whether the two sources describe broadly similar cross-national inequality patterns.
+
+```{r}
+source_comparison <- country_round_inequality |>
+  filter(
+    !is.na(gini_swiid_lag1),
+    !is.na(gini_oecd_lag1)
+  )
+```
+
+```{r}
+source_correlation <- cor(
+  source_comparison$gini_swiid_lag1,
+  source_comparison$gini_oecd_lag1
+)
+
+tibble(
+  n_overlapping_country_rounds =
+    nrow(source_comparison),
+  correlation_swiid_oecd_lag1 =
+    source_correlation
+)
+```
+
+This correlation is descriptive. Agreement between sources does not imply that they are interchangeable: SWIID and OECD differ in construction, country coverage, and treatment of missing annual observations. OECD is therefore retained as a robustness source rather than averaged together with SWIID.
+
+## 10. Save the country-round inequality dataset
+
+```{r}
+write_csv(
+  country_round_inequality,
+  here(
+    "03_data",
+    "interim",
+    "ess_country_round_inequality.csv"
+  )
+)
+```
+
+The saved file contains one row per ESS country-round and is the contextual inequality input used by later analysis-data construction scripts.
+
+## Summary of methodological decisions
+
+This construction encodes several substantive and reproducibility decisions:
+
+1. Contextual inequality is aligned to actual ESS interview timing. Country-round values are respondent-share weighted across observed interview years rather than assigned from a single nominal round year.
+
+2. SWIID is the provisional primary source. Its broader temporal and cross-national coverage makes it suitable for the main analysis.
+
+3. Both contemporaneous and one-year lagged inequality are retained. The lagged measure is intended to reduce temporal simultaneity between the contextual exposure and respondent outcomes.
+
+4. SWIID uncertainty is retained only as a diagnostic in this file. The weighted mean reported uncertainty is not treated as an inferential standard error. Proper propagation of SWIID uncertainty requires modelling across the underlying SWIID draws.
+
+5. OECD IDD is a robustness source. Country-round OECD estimates are retained only when every interview-year component has observed OECD data.
+
+6. Incomplete OECD country-rounds are not partially averaged. This prevents a multi-year ESS round from being represented by only the subset of interview years for which OECD data happen to be available.
+
+7. The complete ESS country-round structure is restored after aggregation. Missing contextual data remain explicit rather than changing the sample silently.
+
+8. Source agreement is inspected but not used to combine sources. SWIID and OECD remain analytically distinct.
+
+## Next steps
+
+The resulting `ess_country_round_inequality.csv` is intended to be merged into the respondent-level ESS analysis data by `cntry` and `essround`.
+
+Later stages of the project can then compare:
+
+- contemporaneous versus lagged inequality;
+- SWIID versus OECD specifications; and
+- point-estimate analyses versus analyses that propagate SWIID uncertainty across its underlying imputations.

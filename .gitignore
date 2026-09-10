@@ -42,6 +42,8 @@ vignettes/*.pdf
 # pkgdown site
 # Ignore docs content by default
 /docs/*
+!/docs/methods/
+!/docs/methods/**
 
 # Allow selected public figures
 !/docs/figures/

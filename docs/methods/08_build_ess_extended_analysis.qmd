@@ -1,0 +1,1502 @@
+---
+title: "Building the extended ESS analysis dataset"
+subtitle: "Harmonising ESS Rounds 10–11 with the Rounds 1–9 baseline"
+date: today
+date-format: "08.09.2026"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    code-tools: true
+    df-print: paged
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: source
+---
+
+## Purpose
+
+This notebook documents the construction of the extended European Social Survey (ESS) analysis dataset covering **Rounds 1–11**.
+
+The project began with a cleaned respondent-level dataset covering ESS Rounds 1–9. Later rounds were added separately because the post-R9 period differs both substantively and operationally from the earlier ESS series.
+
+The extension is therefore designed to:
+
+1. preserve the existing `ess_analysis.rds` file as the R1–R9 baseline;
+2. harmonise interviewer-administered Rounds 10 and 11 to the same analytical structure;
+3. attach one-year-lagged SWIID inequality exposure to the later rounds;
+4. retain macroeconomic controls in a separate country-round file;
+5. preserve interview mode for later sensitivity analyses; and
+6. verify that respondent counts, identifiers, and contextual joins remain intact throughout the extension.
+
+The main outputs are:
+
+- `03_data/processed/ess_analysis_r1_r11.rds`
+- `03_data/interim/ess_country_round_macro_r1_r11.csv`
+- `03_data/interim/ess_country_round_context_r1_r11.csv`
+- respondent- and context-level diagnostic CSV files
+
+## Setup
+
+```{r}
+library(dplyr)
+library(haven)
+library(here)
+library(readr)
+```
+
+## 1. Helper functions
+
+Three small helper functions are used repeatedly when harmonising the later ESS rounds.
+
+### Numeric extraction
+
+`get_num()` returns a numeric version of a variable when present and otherwise returns a vector of missing values of the appropriate length.
+
+This makes the harmonisation robust to variables that are absent from one of the source files.
+
+```{r}
+get_num <- function(
+  dat,
+  variable
+) {
+
+  if (
+    variable %in%
+      names(dat)
+  ) {
+
+    as.numeric(
+      zap_labels(
+        dat[[variable]]
+      )
+    )
+
+  } else {
+
+    rep(
+      NA_real_,
+      nrow(dat)
+    )
+  }
+}
+```
+
+### Character extraction
+
+`get_chr()` performs the analogous operation for character variables.
+
+```{r}
+get_chr <- function(
+  dat,
+  variable
+) {
+
+  if (
+    variable %in%
+      names(dat)
+  ) {
+
+    as.character(
+      dat[[variable]]
+    )
+
+  } else {
+
+    rep(
+      NA_character_,
+      nrow(dat)
+    )
+  }
+}
+```
+
+### Range cleaning
+
+`clean_range()` retains only values inside an expected valid range.
+
+This is used for variables such as trust, age, and education to prevent special codes or unexpected numeric values from entering the harmonised dataset.
+
+```{r}
+clean_range <- function(
+  x,
+  lower,
+  upper
+) {
+
+  if_else(
+    !is.na(x) &
+      x >= lower &
+      x <= upper,
+    x,
+    NA_real_
+  )
+}
+```
+
+## 2. Import the existing R1–R9 analysis dataset
+
+The previously cleaned Rounds 1–9 dataset remains the baseline.
+
+```{r}
+ess_base_raw <- readRDS(
+  here(
+    "03_data",
+    "processed",
+    "ess_analysis.rds"
+  )
+)
+```
+
+```{r}
+tibble(
+  dataset = "Existing R1-R9 analysis data",
+  n_respondents = nrow(ess_base_raw),
+  n_variables = ncol(ess_base_raw)
+)
+```
+
+### Verify required baseline variables
+
+The extension assumes that several core analytical variables already exist in the baseline file.
+
+```{r}
+required_base_vars <- c(
+  "cntry",
+  "essround",
+  "idno",
+  "ppltrst",
+  "age",
+  "gender",
+  "education_years",
+  "analysis_weight",
+  "gini_swiid_lag1"
+)
+
+missing_base_vars <- setdiff(
+  required_base_vars,
+  names(ess_base_raw)
+)
+
+if (
+  length(missing_base_vars) > 0
+) {
+
+  stop(
+    paste(
+      "Required variables missing from ess_analysis.rds:",
+      paste(
+        missing_base_vars,
+        collapse = ", "
+      )
+    )
+  )
+}
+```
+
+This check prevents the extension from running against an incompatible version of the baseline dataset.
+
+## 3. Standardise the R1–R9 structure
+
+The baseline file is reduced to the structure that will also be produced for Rounds 10 and 11.
+
+This standardisation is important because `bind_rows()` should combine conceptually equivalent variables rather than merely columns with similar names.
+
+```{r}
+ess_base <- tibble(
+  essround =
+    as.integer(
+      ess_base_raw$essround
+    ),
+
+  cntry =
+    as.character(
+      ess_base_raw$cntry
+    ),
+
+  idno =
+    as.numeric(
+      ess_base_raw$idno
+    ),
+
+  interview_year =
+    if (
+      "interview_year" %in%
+        names(ess_base_raw)
+    ) {
+      as.numeric(
+        ess_base_raw$interview_year
+      )
+    } else {
+      NA_real_
+    },
+
+  interview_month =
+    if (
+      "interview_month" %in%
+        names(ess_base_raw)
+    ) {
+      as.numeric(
+        ess_base_raw$interview_month
+      )
+    } else {
+      NA_real_
+    },
+
+  # Rounds 1-9 use the conventional face-to-face design.
+  interview_mode =
+    "In-person",
+
+  interview_mode_raw =
+    "Face-to-face",
+
+  ppltrst =
+    as.numeric(
+      ess_base_raw$ppltrst
+    ),
+
+  pplfair =
+    get_num(
+      ess_base_raw,
+      "pplfair"
+    ),
+
+  pplhlp =
+    get_num(
+      ess_base_raw,
+      "pplhlp"
+    ),
+
+  age =
+    as.numeric(
+      ess_base_raw$age
+    ),
+
+  gender =
+    as.character(
+      ess_base_raw$gender
+    ),
+
+  education_years =
+    as.numeric(
+      ess_base_raw$education_years
+    ),
+
+  # Labour-force variables retained but not yet harmonised
+  pdwrk =
+    get_num(
+      ess_base_raw,
+      "pdwrk"
+    ),
+
+  edctn =
+    get_num(
+      ess_base_raw,
+      "edctn"
+    ),
+
+  uempla =
+    get_num(
+      ess_base_raw,
+      "uempla"
+    ),
+
+  uempli =
+    get_num(
+      ess_base_raw,
+      "uempli"
+    ),
+
+  dsbld =
+    get_num(
+      ess_base_raw,
+      "dsbld"
+    ),
+
+  rtrd =
+    get_num(
+      ess_base_raw,
+      "rtrd"
+    ),
+
+  cmsrv =
+    get_num(
+      ess_base_raw,
+      "cmsrv"
+    ),
+
+  hswrk =
+    get_num(
+      ess_base_raw,
+      "hswrk"
+    ),
+
+  dngoth =
+    get_num(
+      ess_base_raw,
+      "dngoth"
+    ),
+
+  mainact =
+    get_num(
+      ess_base_raw,
+      "mainact"
+    ),
+
+  mnactic =
+    get_num(
+      ess_base_raw,
+      "mnactic"
+    ),
+
+  # Household economic position
+  hincfel =
+    get_num(
+      ess_base_raw,
+      "hincfel"
+    ),
+
+  hinctnta =
+    get_num(
+      ess_base_raw,
+      "hinctnta"
+    ),
+
+  # Migration/background
+  brncntr =
+    get_num(
+      ess_base_raw,
+      "brncntr"
+    ),
+
+  ctzcntr =
+    get_num(
+      ess_base_raw,
+      "ctzcntr"
+    ),
+
+  analysis_weight =
+    as.numeric(
+      ess_base_raw$analysis_weight
+    ),
+
+  gini_swiid_lag1 =
+    as.numeric(
+      ess_base_raw$gini_swiid_lag1
+    )
+)
+```
+
+The labour-force variables are deliberately retained without further harmonisation here. Their presence keeps open the possibility of using them later, but this script does not yet impose a new labour-market classification across all rounds.
+
+## 4. Import Rounds 10 and 11
+
+The later rounds are stored as separate interviewer-administered ESS extracts.
+
+```{r}
+r10_file <- here(
+  "03_data",
+  "raw",
+  "ess",
+  "post9",
+  "ess10_f2f.dta"
+)
+
+r11_file <- here(
+  "03_data",
+  "raw",
+  "ess",
+  "post9",
+  "ess11_f2f.dta"
+)
+
+stopifnot(
+  file.exists(r10_file),
+  file.exists(r11_file)
+)
+```
+
+```{r}
+ess10_raw <- read_dta(
+  r10_file
+)
+
+ess11_raw <- read_dta(
+  r11_file
+)
+```
+
+```{r}
+tibble(
+  essround = c(10, 11),
+  n_respondents = c(
+    nrow(ess10_raw),
+    nrow(ess11_raw)
+  ),
+  n_variables = c(
+    ncol(ess10_raw),
+    ncol(ess11_raw)
+  )
+)
+```
+
+Keeping the raw later-round files separate from the original R1–R9 pipeline makes the post-R9 extension transparent and reversible.
+
+## 5. Harmonise the later-round respondent data
+
+The `clean_post9()` function converts a Round 10 or 11 source file into the same respondent-level structure used for the baseline data.
+
+### Why a dedicated harmonisation function is used
+
+The later rounds require several explicit decisions:
+
+- extract interview year and month from the ESS interview-date variable;
+- preserve and standardise interview mode;
+- clean trust and demographic variables to valid ranges;
+- harmonise gender labels;
+- reconstruct analysis weights when `ANWEIGHT` is unavailable;
+- retain additional labour, household, and migration variables where present; and
+- protect against missing or unexpected `essround` coding.
+
+```{r}
+clean_post9 <- function(
+  dat,
+  round_number
+) {
+
+  # Interview date
+  inwds <-
+    dat[["inwds"]]
+
+  if (
+    !inherits(
+      inwds,
+      c(
+        "POSIXct",
+        "POSIXt",
+        "Date"
+      )
+    )
+  ) {
+
+    stop(
+      paste(
+        "inwds is not a recognised date/time variable in Round",
+        round_number
+      )
+    )
+  }
+
+  # Interview-mode labels
+  mode_raw <- if (
+    "mode" %in%
+      names(dat)
+  ) {
+
+    as.character(
+      as_factor(
+        dat$mode
+      )
+    )
+
+  } else {
+
+    rep(
+      NA_character_,
+      nrow(dat)
+    )
+  }
+
+  mode_standard <- case_when(
+    grepl(
+      "video",
+      mode_raw,
+      ignore.case = TRUE
+    ) ~
+      "Video",
+
+    grepl(
+      "face|capi|in.person|personal",
+      mode_raw,
+      ignore.case = TRUE
+    ) ~
+      "In-person",
+
+    is.na(mode_raw) ~
+      NA_character_,
+
+    TRUE ~
+      mode_raw
+  )
+
+  # Core identifiers
+  essround <-
+    get_num(
+      dat,
+      "essround"
+    )
+
+  cntry <-
+    get_chr(
+      dat,
+      "cntry"
+    )
+
+  idno <-
+    get_num(
+      dat,
+      "idno"
+    )
+
+  # Social-trust outcomes
+  ppltrst <-
+    clean_range(
+      get_num(
+        dat,
+        "ppltrst"
+      ),
+      0,
+      10
+    )
+
+  pplfair <-
+    clean_range(
+      get_num(
+        dat,
+        "pplfair"
+      ),
+      0,
+      10
+    )
+
+  pplhlp <-
+    clean_range(
+      get_num(
+        dat,
+        "pplhlp"
+      ),
+      0,
+      10
+    )
+
+  # Age
+  age <-
+    clean_range(
+      get_num(
+        dat,
+        "agea"
+      ),
+      15,
+      120
+    )
+
+  # Gender
+  gndr <-
+    get_num(
+      dat,
+      "gndr"
+    )
+
+  gender <- case_when(
+    gndr == 1 ~
+      "Man",
+
+    gndr == 2 ~
+      "Woman",
+
+    TRUE ~
+      NA_character_
+  )
+
+  # Education
+  education_years <-
+    clean_range(
+      get_num(
+        dat,
+        "eduyrs"
+      ),
+      0,
+      50
+    )
+
+  # Analysis weights:
+  # use ANWEIGHT when available; otherwise reconstruct
+  # from PSPWGHT × PWEIGHT.
+  anweight <-
+    get_num(
+      dat,
+      "anweight"
+    )
+
+  pspwght <-
+    get_num(
+      dat,
+      "pspwght"
+    )
+
+  pweight <-
+    get_num(
+      dat,
+      "pweight"
+    )
+
+  fallback_weight <-
+    pspwght *
+    pweight
+
+  analysis_weight <- case_when(
+    !is.na(anweight) &
+      anweight > 0 ~
+      anweight,
+
+    !is.na(fallback_weight) &
+      fallback_weight > 0 ~
+      fallback_weight,
+
+    TRUE ~
+      NA_real_
+  )
+
+  tibble(
+    essround =
+      as.integer(essround),
+
+    cntry,
+
+    idno,
+
+    interview_year =
+      as.numeric(
+        format(
+          inwds,
+          "%Y"
+        )
+      ),
+
+    interview_month =
+      as.numeric(
+        format(
+          inwds,
+          "%m"
+        )
+      ),
+
+    interview_mode =
+      mode_standard,
+
+    interview_mode_raw =
+      mode_raw,
+
+    ppltrst,
+    pplfair,
+    pplhlp,
+
+    age,
+    gender,
+    education_years,
+
+    # Labour/activity
+    pdwrk =
+      get_num(
+        dat,
+        "pdwrk"
+      ),
+
+    edctn =
+      get_num(
+        dat,
+        "edctn"
+      ),
+
+    uempla =
+      get_num(
+        dat,
+        "uempla"
+      ),
+
+    uempli =
+      get_num(
+        dat,
+        "uempli"
+      ),
+
+    dsbld =
+      get_num(
+        dat,
+        "dsbld"
+      ),
+
+    rtrd =
+      get_num(
+        dat,
+        "rtrd"
+      ),
+
+    cmsrv =
+      get_num(
+        dat,
+        "cmsrv"
+      ),
+
+    hswrk =
+      get_num(
+        dat,
+        "hswrk"
+      ),
+
+    dngoth =
+      get_num(
+        dat,
+        "dngoth"
+      ),
+
+    mainact =
+      get_num(
+        dat,
+        "mainact"
+      ),
+
+    mnactic =
+      get_num(
+        dat,
+        "mnactic"
+      ),
+
+    # Household economic position
+    hincfel =
+      get_num(
+        dat,
+        "hincfel"
+      ),
+
+    hinctnta =
+      get_num(
+        dat,
+        "hinctnta"
+      ),
+
+    # Migration/background
+    brncntr =
+      get_num(
+        dat,
+        "brncntr"
+      ),
+
+    ctzcntr =
+      get_num(
+        dat,
+        "ctzcntr"
+      ),
+
+    analysis_weight
+  ) |>
+    mutate(
+      # Protect against unexpected ESSROUND coding.
+      essround =
+        if_else(
+          is.na(essround),
+          as.integer(round_number),
+          essround
+        ),
+
+      interview_year =
+        if_else(
+          interview_year >= 2020 &
+            interview_year <= 2025,
+          interview_year,
+          NA_real_
+        ),
+
+      interview_month =
+        if_else(
+          interview_month >= 1 &
+            interview_month <= 12,
+          interview_month,
+          NA_real_
+        )
+    )
+}
+```
+
+## 6. Apply the harmonisation to Rounds 10 and 11
+
+```{r}
+ess10 <- clean_post9(
+  ess10_raw,
+  10
+)
+
+ess11 <- clean_post9(
+  ess11_raw,
+  11
+)
+
+ess_post9 <- bind_rows(
+  ess10,
+  ess11
+)
+```
+
+A compact check:
+
+```{r}
+ess_post9 |>
+  count(essround, name = "n_respondents")
+```
+
+## 7. Attach post-R9 inequality exposure
+
+The one-year-lagged SWIID Gini for Rounds 10 and 11 was previously constructed in:
+
+`03_data/interim/ess_post9_context.csv`
+
+That file also contains later-round macroeconomic context.
+
+```{r}
+post9_context <- read_csv(
+  here(
+    "03_data",
+    "interim",
+    "ess_post9_context.csv"
+  ),
+  show_col_types = FALSE
+)
+```
+
+### Verify contextual uniqueness before joining
+
+A country-round contextual file must contain at most one row per `cntry × essround`.
+
+```{r}
+context_duplicates <- post9_context |>
+  count(
+    cntry,
+    essround
+  ) |>
+  filter(
+    n > 1
+  )
+
+if (
+  nrow(context_duplicates) > 0
+) {
+
+  stop(
+    "Duplicate country-rounds found in ess_post9_context.csv."
+  )
+}
+```
+
+### Join lagged inequality to respondents
+
+```{r}
+ess_post9 <- ess_post9 |>
+  left_join(
+    post9_context |>
+      select(
+        cntry,
+        essround,
+        gini_swiid_lag1
+      ),
+    by = c(
+      "cntry",
+      "essround"
+    )
+  )
+```
+
+A left join is used because the respondent-level ESS sample is the backbone. Missing contextual values should remain visible rather than causing respondents to be dropped.
+
+## 8. Combine R1–R9 with R10–R11
+
+```{r}
+ess_extended <- bind_rows(
+  ess_base,
+  ess_post9
+) |>
+  mutate(
+    post_r9 =
+      essround >= 10,
+
+    period =
+      case_when(
+        essround <= 9 ~
+          "R1-R9",
+
+        essround == 10 ~
+          "R10",
+
+        essround == 11 ~
+          "R11",
+
+        TRUE ~
+          NA_character_
+      )
+  ) |>
+  arrange(
+    essround,
+    cntry,
+    idno
+  )
+```
+
+The `post_r9` and `period` variables are retained explicitly because later models may compare the original R1–R9 period with R10 and R11 rather than assuming a single homogeneous ESS series.
+
+## 9. Integrity checks
+
+The extended dataset should preserve every respondent in both the baseline and later-round inputs.
+
+### R1–R9 respondent count
+
+```{r}
+if (
+  sum(
+    ess_extended$essround <= 9
+  ) !=
+    nrow(ess_base_raw)
+) {
+
+  stop(
+    "R1-R9 respondent count changed during extension."
+  )
+}
+```
+
+### R10–R11 respondent count
+
+```{r}
+expected_post9_n <-
+  nrow(ess10_raw) +
+  nrow(ess11_raw)
+
+observed_post9_n <-
+  sum(
+    ess_extended$essround >= 10
+  )
+
+if (
+  expected_post9_n !=
+    observed_post9_n
+) {
+
+  stop(
+    "R10/R11 respondent count changed during extension."
+  )
+}
+```
+
+### Respondent-ID uniqueness
+
+Respondent IDs are expected to be unique within each country-round.
+
+```{r}
+duplicate_ids <- ess_extended |>
+  count(
+    cntry,
+    essround,
+    idno
+  ) |>
+  filter(
+    n > 1
+  )
+
+if (
+  nrow(duplicate_ids) > 0
+) {
+
+  print(
+    duplicate_ids,
+    n = Inf
+  )
+
+  stop(
+    "Duplicate respondent IDs found within country-rounds."
+  )
+}
+```
+
+A compact integrity summary:
+
+```{r}
+tibble(
+  check = c(
+    "R1-R9 respondents",
+    "R10-R11 respondents",
+    "Duplicate respondent IDs"
+  ),
+  observed = c(
+    sum(ess_extended$essround <= 9),
+    observed_post9_n,
+    nrow(duplicate_ids)
+  ),
+  expected = c(
+    nrow(ess_base_raw),
+    expected_post9_n,
+    0
+  )
+)
+```
+
+## 10. Build the extended macro-context file
+
+The project keeps macroeconomic controls separate from the respondent-level dataset.
+
+This preserves a clean distinction between:
+
+- respondent-level ESS data;
+- inequality exposure; and
+- additional country-round macro controls.
+
+### R1–R9 macro controls
+
+```{r}
+macro_base <- read_csv(
+  here(
+    "03_data",
+    "interim",
+    "ess_country_round_macro.csv"
+  ),
+  show_col_types = FALSE
+) |>
+  select(
+    cntry,
+    essround,
+    log_gdp_pc_ppp_lag1,
+    unemployment_lag1
+  )
+```
+
+### R10–R11 macro controls
+
+```{r}
+macro_post9 <- post9_context |>
+  select(
+    cntry,
+    essround,
+    log_gdp_pc_ppp_lag1,
+    unemployment_lag1
+  )
+```
+
+### Combine the periods
+
+```{r}
+macro_extended <- bind_rows(
+  macro_base,
+  macro_post9
+) |>
+  arrange(
+    essround,
+    cntry
+  )
+```
+
+Verify uniqueness:
+
+```{r}
+macro_duplicates <- macro_extended |>
+  count(
+    cntry,
+    essround
+  ) |>
+  filter(
+    n > 1
+  )
+
+if (
+  nrow(macro_duplicates) > 0
+) {
+
+  print(
+    macro_duplicates,
+    n = Inf
+  )
+
+  stop(
+    "Duplicate country-rounds found in extended macro data."
+  )
+}
+```
+
+## 11. Build the combined country-round context file
+
+The combined context object contains one row per country-round with:
+
+- lagged SWIID Gini;
+- lagged GDP per capita;
+- lagged unemployment; and
+- explicit completeness indicators.
+
+```{r}
+context_extended <- ess_extended |>
+  distinct(
+    cntry,
+    essround,
+    gini_swiid_lag1
+  ) |>
+  left_join(
+    macro_extended,
+    by = c(
+      "cntry",
+      "essround"
+    )
+  ) |>
+  mutate(
+    complete_gini =
+      !is.na(
+        gini_swiid_lag1
+      ),
+
+    complete_macro =
+      !is.na(
+        log_gdp_pc_ppp_lag1
+      ) &
+      !is.na(
+        unemployment_lag1
+      ),
+
+    complete_primary_context =
+      complete_gini &
+      complete_macro
+  ) |>
+  arrange(
+    essround,
+    cntry
+  )
+```
+
+These completeness indicators are useful because later models can identify whether sample changes arise from missing inequality, missing macro controls, or both.
+
+## 12. Respondent-level diagnostics
+
+The extended dataset is summarised by ESS round to inspect:
+
+- respondent and country counts;
+- valid social-trust observations;
+- missingness in age, gender, education, weights, and inequality;
+- mean social trust.
+
+```{r}
+build_summary <- ess_extended |>
+  group_by(
+    essround
+  ) |>
+  summarise(
+    n_respondents =
+      n(),
+
+    n_countries =
+      n_distinct(
+        cntry
+      ),
+
+    trust_valid =
+      sum(
+        !is.na(
+          ppltrst
+        )
+      ),
+
+    trust_missing_share =
+      mean(
+        is.na(
+          ppltrst
+        )
+      ),
+
+    age_missing_share =
+      mean(
+        is.na(
+          age
+        )
+      ),
+
+    gender_missing_share =
+      mean(
+        is.na(
+          gender
+        )
+      ),
+
+    education_missing_share =
+      mean(
+        is.na(
+          education_years
+        )
+      ),
+
+    weight_missing_share =
+      mean(
+        is.na(
+          analysis_weight
+        )
+      ),
+
+    gini_missing_share =
+      mean(
+        is.na(
+          gini_swiid_lag1
+        )
+      ),
+
+    mean_trust =
+      mean(
+        ppltrst,
+        na.rm = TRUE
+      ),
+
+    .groups = "drop"
+  )
+
+build_summary
+```
+
+These diagnostics are not merely descriptive. They are intended to expose discontinuities between the baseline and post-R9 data before the extended dataset enters substantive models.
+
+## 13. Contextual-data diagnostics
+
+Context completeness is summarised separately for:
+
+- R1–R9;
+- R10;
+- R11.
+
+```{r}
+context_summary <- context_extended |>
+  mutate(
+    period =
+      case_when(
+        essround <= 9 ~
+          "R1-R9",
+
+        essround == 10 ~
+          "R10",
+
+        essround == 11 ~
+          "R11"
+      )
+  ) |>
+  group_by(
+    period
+  ) |>
+  summarise(
+    n_country_rounds =
+      n(),
+
+    gini_complete =
+      sum(
+        complete_gini
+      ),
+
+    macro_complete =
+      sum(
+        complete_macro
+      ),
+
+    primary_context_complete =
+      sum(
+        complete_primary_context
+      ),
+
+    primary_context_share =
+      mean(
+        complete_primary_context
+      ),
+
+    .groups = "drop"
+  )
+
+context_summary
+```
+
+The separation by period is deliberate. It allows later sensitivity analyses to distinguish genuine contextual-data gaps from changes associated with the post-R9 extension.
+
+## 14. Interview-mode diagnostic
+
+Interview mode is especially important in the post-R9 period.
+
+Rather than assuming the later ESS rounds are fully comparable by mode, the harmonised dataset retains both:
+
+- `interview_mode`: standardised mode categories;
+- `interview_mode_raw`: original ESS mode label.
+
+The current distribution is summarised here:
+
+```{r}
+mode_summary <- ess_extended |>
+  filter(
+    essround >= 10
+  ) |>
+  count(
+    essround,
+    interview_mode,
+    name = "n_respondents"
+  ) |>
+  group_by(
+    essround
+  ) |>
+  mutate(
+    share =
+      n_respondents /
+      sum(n_respondents)
+  ) |>
+  ungroup()
+
+mode_summary
+```
+
+This variable is retained for later robustness and sensitivity analyses rather than automatically entering the primary model specification.
+
+## 15. Save the extended analysis and diagnostic files
+
+Create output directories if necessary:
+
+```{r}
+dir.create(
+  here(
+    "03_data",
+    "processed"
+  ),
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+dir.create(
+  here(
+    "03_data",
+    "interim"
+  ),
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+```
+
+### Respondent-level extended dataset
+
+```{r}
+saveRDS(
+  ess_extended,
+  here(
+    "03_data",
+    "processed",
+    "ess_analysis_r1_r11.rds"
+  )
+)
+```
+
+### Extended macro and contextual data
+
+```{r}
+write_csv(
+  macro_extended,
+  here(
+    "03_data",
+    "interim",
+    "ess_country_round_macro_r1_r11.csv"
+  )
+)
+
+write_csv(
+  context_extended,
+  here(
+    "03_data",
+    "interim",
+    "ess_country_round_context_r1_r11.csv"
+  )
+)
+```
+
+### Diagnostics
+
+```{r}
+write_csv(
+  build_summary,
+  here(
+    "03_data",
+    "interim",
+    "ess_r1_r11_build_summary.csv"
+  )
+)
+
+write_csv(
+  context_summary,
+  here(
+    "03_data",
+    "interim",
+    "ess_r1_r11_context_summary.csv"
+  )
+)
+
+write_csv(
+  mode_summary,
+  here(
+    "03_data",
+    "interim",
+    "ess_r1_r11_mode_summary.csv"
+  )
+)
+```
+
+## 16. Final build summary
+
+```{r}
+final_build_summary <- tibble(
+  measure = c(
+    "Total respondents",
+    "Countries",
+    "Country-rounds"
+  ),
+  value = c(
+    nrow(ess_extended),
+    n_distinct(
+      ess_extended$cntry
+    ),
+    nrow(context_extended)
+  )
+)
+
+final_build_summary
+```
+
+## Summary of methodological decisions
+
+This extension encodes several important design choices:
+
+1. The R1–R9 dataset remains the baseline. The existing `ess_analysis.rds` file is not overwritten. The R1–R11 dataset is a distinct output.
+
+2. Rounds 10 and 11 are harmonised separately before appending. This keeps later-round transformations explicit and prevents post-R9 changes from being hidden inside the original cleaning pipeline.
+
+3. The respondent-level structure is standardised before `bind_rows()`. Equivalent concepts are given the same names and types across periods.
+
+4. Interview mode is retained explicitly. Later analyses can test whether post-R9 findings are sensitive to interview mode rather than assuming mode equivalence.
+
+5. Trust and demographic variables are range-checked. Unexpected numeric or special codes are converted to missing rather than treated as substantive responses.
+
+6. Analysis weights prioritise `ANWEIGHT`. When it is unavailable, the script reconstructs the weight from `PSPWGHT × PWEIGHT`.
+
+7. **Lagged SWIID inequality is attached to R10–R11 through a country-round context file. Respondents remain the backbone of the join, so missing context does not silently drop cases.
+
+8. Macroeconomic controls remain in a separate country-round file. This preserves a clean distinction between respondent data and contextual covariates.
+
+9. The post-R9 period remains analytically identifiable. `post_r9` and `period` allow R1–R9, R10, and R11 to be compared directly.
+
+10. Integrity checks are treated as part of the build process. The script stops if respondent counts change unexpectedly, respondent IDs duplicate within country-rounds, or contextual files contain duplicate country-rounds.
+
+11. Context completeness is recorded explicitly. Later models can identify whether sample restrictions arise from missing Gini, missing macro controls, or both.
+
+12. Diagnostic summaries are saved alongside the data. This creates an audit trail for respondent-level missingness, context completeness, and interview mode.
+
+## Next steps
+
+The extended R1–R11 dataset provides the respondent-level backbone for analyses that go beyond the original R1–R9 period.
+
+Subsequent work can use it to:
+
+- estimate the original inequality–trust models on R1–R9 and then extend them to R10–R11;
+- model period interactions explicitly;
+- examine whether R10 behaves differently from R11;
+- conduct interview-mode sensitivity analyses; and
+- merge additional respondent-level political variables and party-linked discourse measures once those constructions are complete.
