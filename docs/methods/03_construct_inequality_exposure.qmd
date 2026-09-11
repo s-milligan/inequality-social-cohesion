@@ -1,8 +1,6 @@
 ---
 title: "Constructing country-round inequality exposure"
 subtitle: "Interview-year weighted SWIID and OECD inequality measures for ESS"
-date: today
-date-format: "06.09.2026"
 format:
   html:
     toc: true

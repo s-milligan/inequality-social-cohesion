@@ -1,8 +1,6 @@
 ---
 title: "Building the extended ESS analysis dataset"
 subtitle: "Harmonising ESS Rounds 10–11 with the Rounds 1–9 baseline"
-date: today
-date-format: "08.09.2026"
 format:
   html:
     toc: true

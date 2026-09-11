@@ -874,7 +874,7 @@ cat(
 )
 
 print(
-  gini_results,
+  as_tibble(gini_results),
   n = Inf
 )
 
@@ -942,7 +942,7 @@ cat(
 )
 
 print(
-  macro_results,
+  as_tibble(macro_results),
   n = Inf
 )
 

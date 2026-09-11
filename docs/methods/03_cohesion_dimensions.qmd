@@ -1,0 +1,478 @@
+---
+title: "Exploring Dimensions of Horizontal Social Cohesion in the ESS"
+subtitle: "Generalized trust, social meeting frequency, and social activity"
+format:
+  html:
+    toc: true
+    code-fold: false
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+## Purpose
+
+The project is motivated by the relationship between economic inequality and social cohesion, but generalized social trust should not be treated as social cohesion in its entirety. This notebook evaluates additional European Social Survey (ESS) indicators that may capture a distinct behavioural or social-connectedness dimension of horizontal cohesion.
+
+The main candidates are:
+
+- `ppltrst`: generalized social trust;
+- `sclmeet`: frequency of social meetings with friends, relatives, or colleagues;
+- `sclact`: social activity relative to other people of the same age;
+- `inmdisc`: whether the respondent has someone with whom to discuss intimate and personal matters.
+
+The goal is exploratory. The indicators are not assumed to form a single latent scale, and no combined cohesion index is constructed here.
+
+## Setup
+
+```{r}
+library(dplyr)
+library(here)
+
+ess <- readRDS(
+  here::here(
+    "03_data",
+    "processed",
+    "ess_analysis_r1_r11_cohesion_migration.rds"
+  )
+)
+
+weighted_mean_safe <- function(x, w) {
+  # Extract the underlying numeric vectors from haven/vctrs-labelled data.
+  x <- vctrs::vec_data(x)
+  w <- vctrs::vec_data(w)
+
+  ok <- !is.na(x) & !is.na(w) & is.finite(x) & is.finite(w) & w > 0
+
+  if (!any(ok)) {
+    return(NA_real_)
+  }
+
+  stats::weighted.mean(x[ok], w[ok])
+}
+```
+
+## Coverage across ESS rounds
+
+```{r}
+coverage <- ess |>
+  group_by(essround) |>
+  summarise(
+    n = n(),
+    n_ppltrst = sum(!is.na(ppltrst)),
+    n_sclmeet = sum(!is.na(sclmeet)),
+    pct_sclmeet = 100 * mean(!is.na(sclmeet)),
+    n_sclact = sum(!is.na(sclact)),
+    pct_sclact = 100 * mean(!is.na(sclact)),
+    n_inmdisc = sum(!is.na(inmdisc)),
+    pct_inmdisc = 100 * mean(!is.na(inmdisc)),
+    .groups = "drop"
+  )
+
+knitr::kable(
+  coverage,
+  digits = 1,
+  caption = "Coverage of candidate cohesion indicators by ESS round"
+)
+```
+
+`sclmeet` and `sclact` have near-complete coverage across all 11 rounds. By contrast, `inmdisc` is available only through Round `r max(coverage$essround[coverage$n_inmdisc > 0])`, which makes it unsuitable as a main outcome for the full longitudinal analysis. It can still serve as a supplementary indicator for the earlier rounds.
+
+## Overall distributions
+
+```{r}
+sclmeet_distribution <- ess |>
+  count(sclmeet) |>
+  mutate(
+    pct = 100 * n / sum(n)
+  )
+
+sclact_distribution <- ess |>
+  count(sclact) |>
+  mutate(
+    pct = 100 * n / sum(n)
+  )
+
+knitr::kable(
+  sclmeet_distribution,
+  digits = 1,
+  caption = "Distribution of sclmeet"
+)
+
+knitr::kable(
+  sclact_distribution,
+  digits = 1,
+  caption = "Distribution of sclact"
+)
+```
+
+`sclmeet` uses the full seven-category scale and is relatively well distributed. `sclact` is more concentrated around the middle category because respondents evaluate their social activity relative to others of the same age.
+
+This distinction matters conceptually. `sclmeet` measures reported frequency of social contact directly, whereas `sclact` is inherently comparative and could remain stable even if overall social participation changes for an entire age group.
+
+## Individual-level associations
+
+```{r}
+correlations <- ess |>
+  summarise(
+    cor_trust_sclmeet = cor(
+      ppltrst,
+      sclmeet,
+      use = "pairwise.complete.obs"
+    ),
+    cor_trust_sclact = cor(
+      ppltrst,
+      sclact,
+      use = "pairwise.complete.obs"
+    ),
+    cor_sclmeet_sclact = cor(
+      sclmeet,
+      sclact,
+      use = "pairwise.complete.obs"
+    )
+  )
+
+knitr::kable(
+  correlations,
+  digits = 3,
+  caption = "Individual-level correlations"
+)
+```
+
+At the individual level, generalized trust correlates only weakly with both social meeting frequency (`r sprintf("%.3f", correlations$cor_trust_sclmeet)`) and relative social activity (`r sprintf("%.3f", correlations$cor_trust_sclact)`). The association between `sclmeet` and `sclact` is stronger (`r sprintf("%.3f", correlations$cor_sclmeet_sclact)`), but still moderate.
+
+This is consistent with the indicators capturing related but distinct aspects of social life rather than interchangeable measures of one construct.
+
+### Stability by ESS round
+
+```{r}
+correlations_by_round <- ess |>
+  group_by(essround) |>
+  summarise(
+    cor_trust_sclmeet = cor(
+      ppltrst,
+      sclmeet,
+      use = "pairwise.complete.obs"
+    ),
+    cor_trust_sclact = cor(
+      ppltrst,
+      sclact,
+      use = "pairwise.complete.obs"
+    ),
+    cor_sclmeet_sclact = cor(
+      sclmeet,
+      sclact,
+      use = "pairwise.complete.obs"
+    ),
+    .groups = "drop"
+  )
+
+knitr::kable(
+  correlations_by_round,
+  digits = 3,
+  caption = "Individual-level correlations by ESS round"
+)
+```
+
+The correlations are fairly stable across rounds. There is no indication that the relationship among the three indicators changes sharply over the ESS period.
+
+## Weighted country-round means
+
+Country-round means are calculated using the project's `analysis_weight`.
+
+```{r}
+cohesion_country_round <- ess |>
+  group_by(cntry, essround) |>
+  summarise(
+    mean_trust = weighted_mean_safe(
+      ppltrst,
+      analysis_weight
+    ),
+    mean_sclmeet = weighted_mean_safe(
+      sclmeet,
+      analysis_weight
+    ),
+    mean_sclact = weighted_mean_safe(
+      sclact,
+      analysis_weight
+    ),
+    n = n(),
+    .groups = "drop"
+  )
+```
+
+### Within-country variation
+
+```{r}
+within_country_variation <- cohesion_country_round |>
+  group_by(cntry) |>
+  summarise(
+    rounds = n(),
+    sd_trust = sd(mean_trust, na.rm = TRUE),
+    sd_sclmeet = sd(mean_sclmeet, na.rm = TRUE),
+    sd_sclact = sd(mean_sclact, na.rm = TRUE),
+    range_trust = max(mean_trust, na.rm = TRUE) -
+      min(mean_trust, na.rm = TRUE),
+    range_sclmeet = max(mean_sclmeet, na.rm = TRUE) -
+      min(mean_sclmeet, na.rm = TRUE),
+    range_sclact = max(mean_sclact, na.rm = TRUE) -
+      min(mean_sclact, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+knitr::kable(
+  within_country_variation |>
+    filter(rounds >= 5),
+  digits = 3,
+  caption = "Within-country variation for countries observed in at least five rounds"
+)
+```
+
+`sclmeet` shows appreciable country-level change over time in a number of countries. `sclact` generally varies less, reinforcing the concern that its relative wording limits its usefulness for detecting longitudinal changes in social connectedness.
+
+## Associations at the country-round level
+
+```{r}
+country_round_correlations <- cohesion_country_round |>
+  summarise(
+    cor_trust_sclmeet = cor(
+      mean_trust,
+      mean_sclmeet,
+      use = "pairwise.complete.obs"
+    ),
+    cor_trust_sclact = cor(
+      mean_trust,
+      mean_sclact,
+      use = "pairwise.complete.obs"
+    ),
+    cor_sclmeet_sclact = cor(
+      mean_sclmeet,
+      mean_sclact,
+      use = "pairwise.complete.obs"
+    )
+  )
+
+knitr::kable(
+  country_round_correlations,
+  digits = 3,
+  caption = "Correlations among weighted country-round means"
+)
+```
+
+At the country-round level, the indicators are more strongly related than they are at the individual level. Generalized trust correlates `r sprintf("%.3f", country_round_correlations$cor_trust_sclmeet)` with `sclmeet` and `r sprintf("%.3f", country_round_correlations$cor_trust_sclact)` with `sclact`.
+
+This suggests that countries with higher generalized trust also tend to have higher levels of social connectedness or participation. The correlations are moderate rather than extremely high, so the measures still appear to capture distinct dimensions.
+
+## Between- and within-country associations
+
+The country-round means are decomposed into a country-level mean and a country-specific deviation from that mean. This parallels the within-between logic used in the project's REWB models.
+
+```{r}
+cohesion_country_round_decomp <- cohesion_country_round |>
+  group_by(cntry) |>
+  mutate(
+    trust_between = mean(mean_trust, na.rm = TRUE),
+    sclmeet_between = mean(mean_sclmeet, na.rm = TRUE),
+    sclact_between = mean(mean_sclact, na.rm = TRUE),
+    trust_within = mean_trust - trust_between,
+    sclmeet_within = mean_sclmeet - sclmeet_between,
+    sclact_within = mean_sclact - sclact_between
+  ) |>
+  ungroup()
+
+between_correlations <- cohesion_country_round_decomp |>
+  distinct(
+    cntry,
+    trust_between,
+    sclmeet_between,
+    sclact_between
+  ) |>
+  summarise(
+    cor_trust_sclmeet = cor(
+      trust_between,
+      sclmeet_between,
+      use = "pairwise.complete.obs"
+    ),
+    cor_trust_sclact = cor(
+      trust_between,
+      sclact_between,
+      use = "pairwise.complete.obs"
+    ),
+    cor_sclmeet_sclact = cor(
+      sclmeet_between,
+      sclact_between,
+      use = "pairwise.complete.obs"
+    )
+  )
+
+within_correlations <- cohesion_country_round_decomp |>
+  summarise(
+    cor_trust_sclmeet = cor(
+      trust_within,
+      sclmeet_within,
+      use = "pairwise.complete.obs"
+    ),
+    cor_trust_sclact = cor(
+      trust_within,
+      sclact_within,
+      use = "pairwise.complete.obs"
+    ),
+    cor_sclmeet_sclact = cor(
+      sclmeet_within,
+      sclact_within,
+      use = "pairwise.complete.obs"
+    )
+  )
+
+knitr::kable(
+  between_correlations,
+  digits = 3,
+  caption = "Between-country correlations"
+)
+
+knitr::kable(
+  within_correlations,
+  digits = 3,
+  caption = "Within-country correlations"
+)
+```
+
+The between-country associations are clearly positive. Countries with higher long-run generalized trust also tend to have higher long-run social connectedness and social activity.
+
+The raw within-country relationship is different: changes in generalized trust and changes in `sclmeet` are negatively correlated before common ESS-round patterns are taken into account. This motivates additional checks for common period effects.
+
+## Round-level patterns and Rounds 1-9 sensitivity check
+
+```{r}
+round_means <- cohesion_country_round |>
+  group_by(essround) |>
+  summarise(
+    trust = mean(mean_trust, na.rm = TRUE),
+    sclmeet = mean(mean_sclmeet, na.rm = TRUE),
+    sclact = mean(mean_sclact, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+knitr::kable(
+  round_means,
+  digits = 2,
+  caption = "Average country-level means by ESS round"
+)
+```
+
+The round means show somewhat different temporal patterns across the indicators. `sclmeet` is notably lower in Rounds 10 and 11 than in most earlier rounds, while generalized trust does not follow the same pattern. This is particularly relevant because the later rounds include the COVID-period and changed fieldwork conditions.
+
+A sensitivity check therefore repeats the within-country correlations using only Rounds 1-9.
+
+```{r}
+within_r1_r9 <- cohesion_country_round |>
+  filter(essround <= 9) |>
+  group_by(cntry) |>
+  filter(n() >= 3) |>
+  mutate(
+    trust_within = mean_trust - mean(mean_trust, na.rm = TRUE),
+    sclmeet_within = mean_sclmeet - mean(mean_sclmeet, na.rm = TRUE),
+    sclact_within = mean_sclact - mean(mean_sclact, na.rm = TRUE)
+  ) |>
+  ungroup() |>
+  summarise(
+    cor_trust_sclmeet = cor(
+      trust_within,
+      sclmeet_within,
+      use = "pairwise.complete.obs"
+    ),
+    cor_trust_sclact = cor(
+      trust_within,
+      sclact_within,
+      use = "pairwise.complete.obs"
+    ),
+    cor_sclmeet_sclact = cor(
+      sclmeet_within,
+      sclact_within,
+      use = "pairwise.complete.obs"
+    )
+  )
+
+knitr::kable(
+  within_r1_r9,
+  digits = 3,
+  caption = "Within-country correlations, ESS Rounds 1-9"
+)
+```
+
+Excluding Rounds 10-11 reduces the negative trust-`sclmeet` association, but does not make the indicators move closely together over time.
+
+## Two-way country and round adjustment
+
+To distinguish country-specific change from common ESS-round patterns, each country-round outcome is residualised on country and round fixed effects.
+
+```{r}
+cr_complete <- cohesion_country_round |>
+  filter(
+    !is.na(mean_trust),
+    !is.na(mean_sclmeet),
+    !is.na(mean_sclact)
+  )
+
+trust_fe <- lm(
+  mean_trust ~ factor(cntry) + factor(essround),
+  data = cr_complete
+)
+
+sclmeet_fe <- lm(
+  mean_sclmeet ~ factor(cntry) + factor(essround),
+  data = cr_complete
+)
+
+sclact_fe <- lm(
+  mean_sclact ~ factor(cntry) + factor(essround),
+  data = cr_complete
+)
+
+cr_residualised <- cr_complete |>
+  mutate(
+    trust_resid = residuals(trust_fe),
+    sclmeet_resid = residuals(sclmeet_fe),
+    sclact_resid = residuals(sclact_fe)
+  )
+
+two_way_correlations <- cr_residualised |>
+  summarise(
+    cor_trust_sclmeet = cor(
+      trust_resid,
+      sclmeet_resid
+    ),
+    cor_trust_sclact = cor(
+      trust_resid,
+      sclact_resid
+    ),
+    cor_sclmeet_sclact = cor(
+      sclmeet_resid,
+      sclact_resid
+    )
+  )
+
+knitr::kable(
+  two_way_correlations,
+  digits = 3,
+  caption = "Correlations after removing country and ESS-round effects"
+)
+```
+
+After removing both stable country differences and common round effects, generalized trust and `sclmeet` are essentially unrelated (`r sprintf("%.3f", two_way_correlations$cor_trust_sclmeet)`). The relationship between generalized trust and `sclact` remains small (`r sprintf("%.3f", two_way_correlations$cor_trust_sclact)`).
+
+This resolves the earlier apparent negative within-country association: trust and social meeting frequency do not systematically move in opposite directions once common period effects are removed. At the same time, the near-zero residual associations indicate that these indicators should not be treated as interchangeable measures of one latent construct.
+
+## Provisional interpretation
+
+The exploratory evidence supports the following working interpretation:
+
+1. Generalized trust remains the primary attitudinal or relational indicator of horizontal social cohesion.
+2. `sclmeet` is a promising secondary outcome capturing social connectedness or social embeddedness. It has excellent longitudinal coverage, a useful distribution, and meaningful within-country variation.
+3. `sclact` is better treated as a supporting or robustness indicator. Its relative wording and limited temporal movement make it less attractive as the principal longitudinal outcome.
+4. `inmdisc` may be useful as a supplementary indicator for Rounds 1-5, but its limited temporal coverage prevents its use in the main Rounds 1-11 analysis.
+5. The indicators should not be combined into a single cohesion index at this stage. They distinguish countries in related ways but have largely independent within-country dynamics.
+6. `sclmeet` should be described cautiously as an indicator of social connectedness relevant to horizontal cohesion, rather than as a complete measure of cohesion. Frequent interaction may capture bonding ties within close networks and does not necessarily imply bridging cohesion across social groups.
+
+The next step is to audit additional ESS measures before deciding whether `sclmeet` should become the project's definitive second cohesion outcome.

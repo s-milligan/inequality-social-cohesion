@@ -1,8 +1,6 @@
 ---
 title: "ESS political exposure and party linkage"
 subtitle: "Construction and diagnostics for ESS Rounds 1–11"
-date: today
-date-format: "10.09.2026"
 format:
   html:
     toc: true
