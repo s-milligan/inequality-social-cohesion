@@ -1,0 +1,538 @@
+# Research design
+
+
+# Research questions
+
+The core research question is:
+
+> To what extent is economic inequality associated with weaker
+> horizontal social cohesion across European countries and over time?
+
+The project treats horizontal social cohesion as multidimensional rather
+than equating it with any single survey indicator. The empirical
+analysis focuses on two conceptually distinct components:
+
+1.  Attitudinal horizontal cohesion: generalised social trust,
+    reflecting expectations of trustworthiness, fairness, and
+    helpfulness among members of society.
+2.  Behavioural horizontal cohesion: social connectedness and
+    participation, reflecting the extent to which individuals maintain
+    social contact and participate in social activities.
+
+A secondary research question is:
+
+> Are the relationships between economic inequality and these dimensions
+> of horizontal social cohesion stronger in country-periods
+> characterised by more divisive political discourse?
+
+Perceived social conflict remains substantively relevant to the wider
+project, but is treated as a possible further extension rather than as
+the necessary second dimension of cohesion in the main ESS analysis.
+
+# Conceptualisation of social cohesion
+
+Social cohesion is understood here as a property of societies concerning
+the quality and strength of relations among their members. It is
+therefore broader than generalised social trust alone.
+
+The present study focuses specifically on horizontal social cohesion,
+meaning relations among individuals and groups within civil society,
+rather than vertical cohesion between citizens and political
+institutions.
+
+Within horizontal cohesion, the study distinguishes between attitudinal
+and behavioural manifestations. Generalised trust captures expectations
+and orientations towards other members of society. Social connectedness
+and participation capture behavioural manifestations of social
+integration.
+
+Individual ESS responses are therefore treated as indicators of these
+dimensions of cohesion rather than as measures of social cohesion in its
+entirety. Their distribution and change within country-periods provide
+information about the state of horizontal cohesion within societies.
+
+This distinction also avoids defining cohesion through its presumed
+causes. Economic equality, economic security, institutional quality, and
+political discourse may contribute to social cohesion, but they are not
+themselves treated as components of the cohesion construct.
+
+# Analytical focus
+
+For each dimension of horizontal social cohesion, the project
+distinguishes two forms of association with economic inequality:
+
+1.  Between-country differences: Are countries characterised by
+    persistently higher levels of inequality also characterised by lower
+    levels of horizontal social cohesion?
+2.  Within-country change: When inequality increases or decreases within
+    a country over time, do indicators of horizontal social cohesion
+    change correspondingly?
+
+The within-country relationship is the primary empirical focus.
+Cross-country differences remain substantively relevant but are more
+vulnerable to confounding by persistent historical, institutional,
+cultural, and economic differences between countries.
+
+The analysis is observational and is not intended to establish a
+definitive causal effect of inequality.
+
+# Hypotheses
+
+## Economic inequality and generalised social trust
+
+H1a: Within-country inequality and trust
+
+Increases in economic inequality within countries are associated with
+decreases in generalised social trust.
+
+H1b: Between-country inequality and trust
+
+Countries characterised by persistently higher levels of economic
+inequality exhibit lower levels of generalised social trust.
+
+## Economic inequality and behavioural horizontal cohesion
+
+H2a: Within-country inequality and social connectedness
+
+Increases in economic inequality within countries are associated with
+lower levels of social connectedness and participation.
+
+H2b: Between-country inequality and social connectedness
+
+Countries characterised by persistently higher levels of economic
+inequality exhibit lower levels of social connectedness and
+participation.
+
+## Political discourse
+
+H3: Political-discursive moderation
+
+The negative within-country relationship between economic inequality and
+horizontal social cohesion is stronger in country-periods characterised
+by more divisive political discourse.
+
+The moderation hypothesis will be evaluated separately for the
+attitudinal and behavioural outcomes. The theoretical expectation is
+strongest for generalised social trust, because political discourse may
+directly shape interpretations of social relations and group conflict.
+Moderation of behavioural social connectedness will therefore initially
+be treated as a secondary test.
+
+H3 remains provisional. It will only be tested if a theoretically
+defensible and empirically feasible country-period measure of political
+discourse can be constructed.
+
+# Outcomes
+
+## Generalised social trust
+
+Generalised social trust represents the principal attitudinal indicator
+of horizontal social cohesion.
+
+The primary trust outcome will remain the European Social Survey item
+`ppltrst`, which asks respondents to place themselves on a scale from 0
+(“you can’t be too careful”) to 10 (“most people can be trusted”).
+
+Two related ESS items will be retained for secondary analyses:
+
+- `pplfair`: whether most people would try to take advantage of the
+  respondent or try to be fair;
+- `pplhlp`: whether people mostly look out for themselves or mostly try
+  to be helpful.
+
+A composite trust/fairness/helpfulness scale will be examined as a
+robustness or alternative operationalisation, subject to appropriate
+measurement checks. Generalised trust is not treated as a proxy for
+social cohesion as a whole, but as one important attitudinal dimension
+of horizontal cohesion.
+
+## Social connectedness and participation
+
+Social connectedness and participation represent a behavioural indicator
+of horizontal social cohesion.
+
+Two ESS core items will initially be evaluated:
+
+- `sclmeet`: frequency of meeting socially with friends, relatives, or
+  work colleagues;
+- `sclact`: frequency of participation in social activities compared
+  with other people of the same age.
+
+The two measures will initially be analysed separately rather than
+combined into a single index. `sclmeet` captures the reported frequency
+of actual social contact, whereas `sclact` is a relative assessment of
+participation compared with peers.
+
+The choice of the principal behavioural outcome will be made after
+examining cross-round and cross-country coverage, distributions,
+temporal variation, and the empirical relationship between the two
+items. A composite measure will only be considered if it is supported
+conceptually and empirically.
+
+# Outcomes
+
+## Generalised social trust
+
+The primary outcome will be the European Social Survey item `ppltrst`,
+which asks respondents to place themselves on a scale from 0 (“you can’t
+be too careful”) to 10 (“most people can be trusted”).
+
+The primary analysis will use this single item because it provides a
+direct measure of generalised interpersonal trust.
+
+Two related ESS items will be retained for possible secondary analyses:
+
+- `pplfair`: whether most people would try to take advantage of the
+  respondent or try to be fair
+- `pplhlp`: whether people mostly look out for themselves or mostly try
+  to be helpful
+
+A composite trust/fairness/helpfulness scale may be examined as a
+robustness or secondary outcome, subject to appropriate measurement
+checks.
+
+# Main explanatory variable
+
+## Economic inequality
+
+The main contextual exposure is country-level inequality in equivalised
+household disposable income after taxes and transfers.
+
+The preferred operationalisation is the Gini coefficient.
+
+The primary inequality measure is the disposable-income Gini coefficient
+from the Standardized World Income Inequality Database (SWIID), version
+9.92.
+
+SWIID is used as the primary series because it provides complete
+country-year coverage for the usable ESS Rounds 1–9 analytical sample.
+Coverage checks showed that a one-year-lagged SWIID Gini was available
+for all 374 ESS country × interview-year cells with known interview
+year.
+
+The OECD Income Distribution Database (IDD) will be used as a robustness
+measure. Exact one-year-lagged OECD coverage was available for 274 of
+374 ESS country × interview-year cells, representing approximately 71%
+of respondents. Missing OECD coverage is geographically uneven and
+disproportionately affects several Eastern and Southeastern European
+countries.
+
+The use of SWIID therefore preserves the wider European scope of the
+analysis, while OECD provides an important robustness check using a more
+directly observed inequality series.
+
+Because SWIID values are model-based estimates with associated
+uncertainty, robustness analyses will consider the implications of this
+measurement uncertainty rather than treating the summary-series
+estimates as perfectly observed.
+
+# Survey data
+
+## European Social Survey
+
+The initial analysis will use repeated cross-sectional individual-level
+data from the European Social Survey (ESS).
+
+The provisional baseline sample consists of ESS Rounds 1–9, covering the
+period from the early 2000s through 2018/19.
+
+Restricting the baseline analysis to these rounds provides a
+comparatively consistent survey-mode period. Later ESS rounds will be
+evaluated separately and may be incorporated in sensitivity analyses or
+extensions.
+
+The final country sample will be determined by the intersection of:
+
+1.  ESS participation;
+2.  availability of the social-trust outcome;
+3.  availability of a suitable inequality observation;
+4.  availability of required contextual controls;
+5.  sufficient repeated observations within countries for longitudinal
+    analysis.
+
+No fixed list of countries will be imposed before this coverage
+assessment.
+
+# Time structure and contextual matching
+
+The contextual survey unit is the country-round.
+
+ESS fieldwork frequently spans two calendar years. In the Rounds 1–9
+sample, a majority of country-rounds contain interviews conducted in
+more than one calendar year. Contextual variables are therefore not
+assigned using a single nominal ESS round year.
+
+Instead, annual inequality values are aggregated to the country-round
+level using the observed proportion of respondents interviewed in each
+calendar year.
+
+For example, if 80% of respondents in a country-round were interviewed
+in 2016 and 20% in 2017, the one-year-lagged inequality exposure is:
+
+$$
+0.8 \times Gini_{2015} + 0.2 \times Gini_{2016}
+$$
+
+The primary inequality specification uses a one-year lag, linking social
+trust measured during fieldwork at time (t) to inequality measured
+approximately one year earlier:
+
+$$
+Inequality_{c,t-1} \rightarrow Trust_{i,c,t}
+$$
+
+Contemporaneous inequality will be examined as a robustness
+specification.
+
+The country-round remains the contextual unit rather than splitting
+individual ESS rounds into separate country-year surveys. This preserves
+the survey structure while incorporating actual fieldwork timing into
+the contextual exposure.
+
+One unresolved timing case remains: Estonia in ESS Round 5 lacks usable
+interview-year information in the downloaded timing variables. It is
+retained in the underlying ESS dataset but currently lacks a constructed
+inequality exposure.
+
+# Data structure
+
+The data have a hierarchical repeated-cross-sectional structure:
+
+$$
+Individuals_{i} \subset CountryPeriods_{ct} \subset Countries_{c}
+$$
+
+Individual respondents are observed once, while countries are observed
+repeatedly across ESS periods.
+
+The analytical dataset will therefore contain:
+
+- individual-level ESS variables;
+- country and period identifiers;
+- country-period inequality;
+- country-period macroeconomic controls;
+- later, if feasible, country-period political-discourse measures.
+
+# Empirical strategy
+
+## Within-between decomposition
+
+Time-varying country-level inequality will be decomposed into
+between-country and within-country components.
+
+For country $c$ at time $t$:
+
+$$ Gini_{ct} = \overline{Gini}_{c} + (Gini_{ct} - \overline{Gini}_{c}) $$
+
+where:
+
+- $\overline{Gini}_{c}$ represents the country’s average level of
+  inequality across the observed period;
+- $Gini_{ct} - \overline{Gini}_{c}$ represents the country’s deviation
+  from its own average at a particular point in time.
+
+The coefficient on the within-country component is the primary parameter
+of interest.
+
+This allows the analysis to distinguish the relationship associated with
+persistent differences between countries from that associated with
+changes occurring within countries over time.
+
+## Baseline model
+
+The initial model will be a multilevel repeated-cross-sectional model
+with:
+
+- individuals at level 1;
+- country-periods at level 2;
+- countries at level 3.
+
+The baseline model will include both the within-country and
+between-country components of inequality.
+
+Period effects will be included to absorb shocks and secular
+developments common across European countries.
+
+The exact random-effects specification will be determined after
+exploratory modelling and examination of the number and distribution of
+country-period observations.
+
+# Individual-level covariates
+
+The initial individual-level adjustment set will be deliberately
+parsimonious.
+
+Candidate variables include:
+
+- age;
+- age squared;
+- gender;
+- educational attainment;
+- labour-force status.
+
+These variables are intended primarily to account for changes in
+sample/population composition across country-periods rather than to
+maximise individual-level prediction of trust.
+
+Additional individual-level variables will only be introduced where
+there is a clear theoretical or design rationale.
+
+# Country-level covariates
+
+The initial macro-level adjustment set will also be parsimonious.
+
+The first candidates are:
+
+- GDP per capita;
+- unemployment rate.
+
+Additional contextual variables will not be added automatically. Before
+inclusion, each candidate will be considered in terms of whether it
+represents:
+
+- a potential confounder;
+- a competing contextual explanation;
+- a possible mechanism through which inequality affects social cohesion;
+- or an unnecessary source of model complexity.
+
+Particular care will be taken not to control away mechanisms that form
+part of the theoretical relationship of interest.
+
+# Survey weights
+
+The appropriate use of ESS weights in the multilevel analysis remains an
+open methodological decision.
+
+Data preparation will retain all relevant ESS weighting variables. The
+main analysis will specify explicitly:
+
+- whether and how design weights are used;
+- whether post-stratification weights are used;
+- how countries are weighted relative to one another;
+- sensitivity of estimates to alternative weighting choices.
+
+No weighting strategy will be fixed before examining ESS guidance and
+the requirements of the selected modelling framework.
+
+# Political-discourse moderation
+
+Political discourse is conceptualised as a characteristic of the
+political environment rather than as an individual attitude.
+
+The intended construct concerns the extent to which political actors
+portray society and political conflict in divisive, antagonistic, or
+group-conflict terms.
+
+The preferred approach is to derive a country-period measure from
+political-party discourse, potentially using manifesto text.
+
+A suitable measure must satisfy four conditions:
+
+1.  Conceptual validity: it must measure political discourse rather than
+    simply societal polarisation or social conflict.
+2.  Temporal variation: it must vary sufficiently within countries over
+    time.
+3.  Cross-national comparability: the measure must be interpretable
+    across European political systems.
+4.  Coverage: it must overlap sufficiently with the ESS analytical
+    sample.
+
+If these conditions cannot be met, political discourse will not be
+forced into the main analysis.
+
+If a suitable measure is developed, the principal moderation test will
+concern the interaction between the within-country component of
+inequality and the political-discourse measure.
+
+# Further outcome extensions
+
+Perceived social conflict remains substantively relevant to the wider
+project because it captures a more explicitly antagonistic manifestation
+of social division than either generalised trust or social
+participation.
+
+It is no longer required, however, to provide the second dimension of
+social cohesion in the main ESS analysis. The primary empirical strategy
+instead examines attitudinal and behavioural dimensions of horizontal
+cohesion using repeated ESS core measures.
+
+Perceived social conflict may subsequently be incorporated if a measure
+can be identified that:
+
+- is conceptually distinct from the existing cohesion outcomes;
+- can be measured comparably across countries and over time;
+- provides sufficient longitudinal country coverage;
+- strengthens rather than diffuses the central contribution of the
+  paper.
+
+This extension may require a complementary dataset if the ESS does not
+provide an adequate repeated measure.
+
+# Robustness and sensitivity analyses
+
+Planned robustness checks include:
+
+- OECD IDD rather than SWIID inequality;
+- contemporaneous rather than one-year-lagged inequality;
+- sensitivity to SWIID measurement uncertainty;
+- alternative treatment of ESS fieldwork timing;
+- inclusion of later ESS rounds where survey-mode comparability permits;
+- alternative individual-level adjustment sets;
+- alternative country-level adjustment sets;
+- alternative survey-weighting strategies;
+- a three-item trust/fairness/helpfulness scale rather than `ppltrst`
+  alone;
+- influence of individual countries or country-periods;
+- alternative specifications of common temporal trends.
+
+The final robustness strategy will be specified after the primary
+analytical dataset and baseline model have been established.
+
+# Immediate data-preparation tasks
+
+The first empirical tasks are:
+
+1.  Build an ESS country × round × interview-year coverage table for
+    Rounds 1–9.
+2.  Identify and retain the social-trust variables and required
+    identifiers.
+3.  Identify a minimal set of individual-level covariates that are
+    harmonised across rounds.
+4.  Compare OECD and SWIID inequality coverage against the observed ESS
+    country-years.
+5.  Establish a reproducible country-year matching rule for contextual
+    variables.
+6.  Construct the first analysis-ready ESS dataset.
+7.  Estimate descriptive country-period trends in social trust before
+    fitting explanatory models.
+
+# Open design decisions
+
+The following decisions remain unresolved:
+
+- treatment of SWIID estimation uncertainty in the final models;
+- final survey-weighting strategy for the multilevel analysis;
+- exact multilevel random-effects specification;
+- final individual-level adjustment set;
+- final macro-level adjustment set;
+- operationalisation of political discourse;
+- inclusion of perceived social conflict in the same article;
+- inclusion of ESS Rounds 10 and later in the primary or sensitivity
+  sample;
+- treatment of the Estonia Round 5 timing anomaly.
+
+The following decisions have now been made provisionally:
+
+- ESS Rounds 1–9 form the baseline survey sample;
+- `ppltrst` is the primary social-trust outcome;
+- SWIID is the primary inequality source;
+- OECD IDD is the principal inequality robustness source;
+- the primary inequality exposure is lagged by one year;
+- contextual inequality is aggregated to country-rounds using
+  interview-year respondent shares;
+- within-country inequality variation is the primary estimand;
+- between-country inequality is estimated separately.
+
+These decisions will be (or have been) resolved through explicit
+theoretical reasoning and empirical coverage checks rather than fixed in
+advance for convenience.

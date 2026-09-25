@@ -77,3 +77,7 @@ rsconnect/
 .Ruserdata
 .Rproj.user/
 .quarto/
+
+# Generated Quarto HTML documentation
+/docs/methods/*.html
+/docs/methods/*_files/
