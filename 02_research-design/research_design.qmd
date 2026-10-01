@@ -242,38 +242,63 @@ decision. Sensitivity analyses should consider the role of ESS design and post-s
 
 # Political-discourse moderation
 
-Political discourse is conceptualised as a characteristic of the political environment, rather than an individual attitude. The intended construct concerns how political actors frame society and political conflict in divisive, antagonistic or group-conflict terms.
+## Construct and operationalisation
 
-## Provisional operationalisation
+The substantive hypothesis concerns whether divisive political discourse conditions the association between economic inequality and generalised trust. The initial empirical test operationalises one specific dimension of that broader concept: political parties' use of group-directed hate speech. It should therefore be interpreted as a test involving party hate speech, rather than a comprehensive measure of divisive discourse.
 
-The September planning discussion identified the following candidates. These are working choices, not verified measures or completed constructions:
+The selected indicator is V-Dem `v2smpolhate`, from the Country-Year Full+Others dataset, version 16. It assesses the frequency with which major political parties use rhetoric intended to insult, offend or intimidate groups defined by characteristics such as race, religion, sexual orientation, national origin or disability.
 
-| Role | Candidate | Required assessment |
-|---|---|---|
-| Main country-period measure | V-Dem `v2dlcountr`, provisionally reverse-coded | Check exact construct, codebook wording, scale, direction, version, uncertainty and country-year coverage. |
-| Validation measure | Vote-weighted V-Party `v2paopresp`, provisionally reverse-coded | Check item definition, electoral coverage, weighting denominator, party matching and temporal alignment. |
-| Robustness measure | V-Dem `v2cacamps` | Assess conceptual overlap with societal polarisation and justify its distinct role. |
+The interval-scale estimate is multiplied by minus one so that higher values indicate more frequent hate speech. The resulting variable is named `party_hate`. Negative values are valid locations on the reversed measurement scale; zero does not represent the absence of hate speech.
 
-The earlier preference for manifesto-based measurement is retained as a possible alternative, rather than the current implementation plan. No candidate should be described as a direct measure of divisive discourse until its conceptual fit has been assessed.
+The earlier candidate, reversed `v2dlcountr`, measures disregard for counterarguments and also encompasses suppression and non-engagement. It is retained as an alternative contextual measure, but is no longer the preferred operationalisation of hostile rhetoric. `v2cacamps` concerns societal political polarisation and is retained as a distinct contextual alternative, not an interchangeable measure of party communication.
 
-A suitable measure must offer conceptual validity, sufficient temporal variation, cross-national comparability and overlap with the ESS analytical sample. If these conditions cannot be met, discourse moderation will not be forced into the main analysis.
+Source documentation: [V-Dem Codebook v16](https://v-dem.net/documents/70/codebook_v16.pdf), sections 7.5.11 and 3.7.1.3.
 
-## Construction and validation tasks
+## Country-round construction
 
-1. Verify the codebook definitions and select the data release and measurement scale. Record all recoding rules explicitly.
-2. Audit country-year coverage and within-country variation over the ESS observation window.
-3. Specify timing relative to inequality exposure and interviews, including any lag. The inequality lag does not automatically determine the appropriate discourse lag.
-4. Define country-round aggregation using actual fieldwork timing. Document missing-year rules and avoid undocumented extrapolation.
-5. For V-Party, define which parties and elections contribute, the source of vote weights, unmatched-party treatment and the rule for assigning election observations to ESS periods.
-6. Compare candidate measures on a common sample and examine whether they capture distinguishable constructs.
+Annual indicator values are aggregated to ESS country-rounds using the proportion of dated interviews conducted in each calendar year. Baseline timing counts are taken from `ess_inequality_coverage.csv`; later-round counts are taken from `ess_post9_country_round_year_coverage.csv`.
 
-The ESS political supplement and party inventory have been prepared according to the project work record. Importing V-Party and completing automated and manually reviewed ESS-to-V-Party matching remain outstanding. A country-level V-Dem measure can be evaluated before that linkage is completed. ESS respondent party choices should not be treated as interchangeable with national election vote shares when constructing the contextual validation measure.
+Both contemporaneous and one-year-lagged exposures have been constructed. The initial model will use the one-year lag to place the contextual measure before the interview year. Contemporaneous exposure is a planned sensitivity specification. This timing choice does not establish causality.
 
-## Moderation model
+Interview-year shares are calculated among respondents with known interview years. Respondents without dates remain in the respondent dataset and receive the contextual exposure of their country-round where one can be constructed. This assumes that dated respondents adequately represent the country-round's fieldwork timing.
 
-The principal test concerns the interaction between within-country inequality and the discourse measure, with the relevant lower-order terms included. Before estimation, specify whether discourse enters as a total country-period level or through separate within-country and between-country components; these choices answer different questions.
+All annual components must have an observed indicator value for an exposure to be calculated. Missing contextual years are not interpolated or omitted through renormalisation. Country-rounds without usable timing information retain missing exposures.
 
-Report predicted trust or marginal inequality slopes over the observed discourse range, with uncertainty. Compare models on a common sample so that coverage changes are not mistaken for moderation. Later-period differences alone do not demonstrate a discourse mechanism, particularly where survey-mode changes coincide with that period.
+## Measurement audit completed on 1 October 2026
+
+All three candidate indicators have complete annual coverage for the 39 ESS countries over 2000–2025. Both timing specifications were successfully constructed for 279 of 280 ESS country-rounds. Estonia Round 5 is the sole exception because no usable interview-year information is available. There are no missing V-Dem matches among the dated interview-year components.
+
+At the observed ESS country-rounds, lagged party hate speech varies in 28 of the 33 countries with repeated observations in Rounds 1–9, and in 33 of the 35 countries with repeated observations in Rounds 1–11. These are pre-model audit counts; complete-case exclusions may reduce the available information.
+
+Country trajectories were inspected before fitting discourse interactions. Lithuania and Finland showed notable differences between contemporaneous and lagged exposures. Inspection of their annual source estimates confirmed that movements are present in the V-Dem data. This check does not establish their substantive validity. Both countries are retained, with country influence and indicator uncertainty reserved for sensitivity assessment.
+
+Incomplete timing information affects 24 country-rounds, including Estonia Round 5. Particularly substantial partial gaps occur in Spain, Iceland, Latvia and Croatia in Round 9, and Czechia in Round 1. Fieldwork documentation should be checked to assess whether undated interviews could alter the annual exposure weights. These timing limitations also apply to the inequality exposures constructed from the same baseline counts.
+
+## Initial moderation specification
+
+The initial analysis will extend M4 separately for Rounds 1–9 and Rounds 1–11. Nested models within each period will use the same complete-case sample. Contextual decompositions will use unique country-rounds contributing to that sample, giving each observed round equal weight within a country.
+
+Party hate speech will be decomposed into its country mean and its deviation from that mean. The main moderation test concerns the interaction between within-country inequality and within-country hate speech. A second interaction concerns within-country inequality and country-mean hate speech.
+
+The first interaction asks whether the inequality–trust association is more negative when hate speech is higher than usual within a country. The second asks whether the association differs according to countries' average levels of hate speech.
+
+The product of the two within-country deviations can itself have a nonzero country mean. Its country mean and its deviation from that mean will therefore enter separately, allowing the within-country interaction to be distinguished from between-country differences in the average product.
+
+Models will retain the existing M4 individual and macroeconomic controls, ESS-round fixed effects, and country and country-round random intercepts. Relevant lower-order terms will be included. Initial estimation will remain unweighted, consistent with the existing model sequence.
+
+Interaction estimates will be interpreted using marginal inequality slopes over supported combinations of the moderator components, with uncertainty. The first models will use indicator point estimates; they will not yet propagate V-Dem measurement uncertainty or SWIID imputation uncertainty.
+
+## Respondent party-affiliation extension
+
+The ESS vote and party-closeness data have been prepared but have not yet been used in substantive models. Linking these records to external party characteristics remains a separate planned strand.
+
+V-Party `v2paopresp` is a candidate measure of party leadership's demonisation of political opponents. Its expert-coded coverage through 2019 limits its application to the later ESS rounds. Historical party scores will not automatically be carried forward as if they measured current rhetoric.
+
+Reported vote and party closeness will remain distinguishable. Associations involving the rhetoric of an affiliated party will be interpreted as variation by party affiliation, not as causal effects of individual exposure to rhetoric.
+
+A national aggregate based on party scores and election vote shares does not require respondent-level ESS party matching. The respondent-affiliation analysis does require that linkage.
+
+Source documentation: [V-Party Codebook v2](https://v-dem.net/documents/6/vparty_codebook_v2.pdf).
 
 # Wider-project extensions
 
@@ -331,8 +356,9 @@ This status summary combines the uploaded design files with the recorded Septemb
 - Final survey-weighting strategy and sensitivity to alternative country weighting.
 - Whether the current random-intercept structure, ESS-round fixed effects and covariate set are adequate for the final analysis, informed by model diagnostics and sensitivity checks.
 - Treatment and pooling of SWIID estimation uncertainty.
-- Final discourse construct, scale, lag, aggregation, missingness rules and uncertainty treatment.
-- Whether discourse moderation concerns total contextual discourse or distinct within-country and between-country components.
+- Sensitivity of party hate-speech moderation to contemporaneous versus lagged exposure, country influence, survey mode, weighting and alternative contextual measures.
+- Treatment of V-Dem measurement uncertainty alongside SWIID imputation uncertainty.
+- Verification of fieldwork timing in country-rounds with substantial missing interview-year information.
 - V-Party election alignment, party mapping, vote-weight source and unmatched-party treatment.
 - Current treatment of the Estonia Round 5 timing anomaly.
 
@@ -344,5 +370,5 @@ This status summary combines the uploaded design files with the recorded Septemb
 - The primary inequality exposure is lagged by one year and aggregated to country-rounds using interview-year respondent shares.
 - Within-country inequality variation is the primary estimand; between-country inequality is estimated separately.
 - Rounds 1–9 remain a baseline comparator; Rounds 10–11 have been incorporated into an extended dataset.
-- Discourse moderation remains provisional pending measurement and coverage checks.
+- The initial discourse analysis uses one-year-lagged party hate speech, measured by reversed V-Dem `v2smpolhate`, with separate within-country and between-country moderator components. This specification was selected after the measurement audit and before inspecting discourse-interaction results.
 
