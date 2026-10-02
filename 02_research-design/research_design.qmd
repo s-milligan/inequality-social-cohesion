@@ -372,3 +372,56 @@ This status summary combines the uploaded design files with the recorded Septemb
 - Rounds 1–9 remain a baseline comparator; Rounds 10–11 have been incorporated into an extended dataset.
 - The initial discourse analysis uses one-year-lagged party hate speech, measured by reversed V-Dem `v2smpolhate`, with separate within-country and between-country moderator components. This specification was selected after the measurement audit and before inspecting discourse-interaction results.
 
+
+### Analysis update: 2 October 2026
+
+The first party hate-speech moderation models implement the working specification recorded on 1 October. Models are estimated separately for ESS R1–R9 and R1–R11 using one-year-lagged, reversed V-Dem party hate speech. Within each period, M4–M7 use identical complete cases. Contextual means are calculated from unique contributing country-rounds, with equal round weights within countries. The primary interaction is within-country Gini × within-country hate speech; its product is itself decomposed into a country mean and a within-country deviation. The secondary interaction is within-country Gini × between-country hate speech. Estimation uses unweighted maximum likelihood, ESS-round fixed effects, individual and macro controls, and country and country-round random intercepts.
+
+The R1–R9 sample contains 419,618 respondents from 37 countries and 226 country-rounds. The R1–R11 sample contains 498,461 respondents from 38 countries and 273 country-rounds. All eight models converged without warnings, singular fits or dropped terms. Relative to the input data, contextual completeness excludes two country-rounds in R1–R9 and seven in R1–R11; their identities and missing variables remain to be audited.
+
+| Estimate | R1–R9 | R1–R11 |
+|---|---:|---:|
+| Within-country Gini, M5 | 0.0092 [−0.0160, 0.0344] | 0.0052 [−0.0164, 0.0268] |
+| Within-country hate speech, M5 | 0.144 [0.0680, 0.220] | 0.0942 [0.0291, 0.159] |
+| Primary moderation, M6 | 0.0608 [−0.0010, 0.123] | 0.0351 [−0.0215, 0.0918] |
+| Secondary moderation, M7 | 0.0097 [−0.0099, 0.0293] | 0.0108 [−0.0068, 0.0283] |
+
+Intervals are approximate 95% Wald confidence intervals. The full-sample models provide no clear evidence of either interaction. The positive primary interaction estimates imply a more positive inequality–trust slope at higher within-country hate-speech levels. The positive within-country hate-speech association is observational and should not be interpreted causally. AIC favours M5 in both periods, whereas BIC favours M4. Differences between period-specific estimates have not been formally tested.
+
+The country-influence analysis refitted M5 and M6 after omitting each country individually, retaining the original variable centring. All 150 refits completed without numerical problems. The M5 hate-speech coefficient remained positive in every refit, ranging from 0.120 to 0.187 in R1–R9 and from 0.0672 to 0.116 in R1–R11. Omitting Hungary weakened the R1–R11 association sufficiently for its confidence interval to include zero. The M6 primary interaction also remained positive throughout, ranging from 0.0313 to 0.0844 in R1–R9 and from 0.0233 to 0.0653 in R1–R11. Omitting Poland reduced the R1–R9 interaction most; omitting Sweden increased the R1–R11 interaction most. These checks support stability of direction under single-country deletion, while showing sensitivity in magnitude and precision. No country is excluded on this basis.
+
+The Gini coefficients reported here are pooled within-country slopes, not country-specific slopes. In interaction models, the Gini main coefficient is conditional on the moderator components being zero. Mean-centring does not mechanically produce a near-zero coefficient.
+
+Implementation: `04_code/03_models/06_party_hate_moderation.R`; `04_code/03_models/07_party_hate_country_influence.R`; and `04_code/02_descriptives/05_party_hate_moderation_slopes.R`. Generated models, diagnostics and figures remain under `05_output`.
+
+#### Contextual exclusion audit and exposure timing comparison
+
+The contextual exclusion audit exactly reproduced the saved respondent counts and country-round membership. R1–R9 excludes Estonia R5 (1,793 respondents; missing Gini, hate speech, GDP and unemployment) and Kosovo R6 (1,295; missing unemployment). R1–R11 additionally excludes Israel R11 (906; missing Gini), Iceland R10 (903; missing Gini), Iceland R11 (842; missing Gini), Montenegro R11 (1,609; missing Gini) and Ukraine R11 (2,661; missing Gini and unemployment). These exclusions total 3,088 respondents in R1–R9 and 10,009 in R1–R11 before individual complete-case restrictions. All excluded country-rounds have matching rows in the contextual tables. Estonia R5 has the previously documented absence of interview-year information; the upstream causes of the remaining missing values have not yet been established.
+
+The timing sensitivity analysis changed only party hate speech from one-year-lagged to contemporaneous exposure, retaining lagged Gini and macro controls. Both timings used identical respondents within each period, with no additional exclusions. All 14 models converged without warnings or singular fits. The lagged estimates reproduced the original results at the reported precision.
+
+Under contemporaneous exposure, the M5 within-country hate-speech coefficient was 0.113 [0.0395, 0.187] in R1–R9 and 0.0662 [0.0044, 0.128] in R1–R11, compared with lagged estimates of 0.144 and 0.0942. The M6 primary interaction was 0.0508 [−0.0122, 0.114] in R1–R9 and 0.0257 [−0.0296, 0.0811] in R1–R11. Both interaction specifications remained uncertain under either timing. The positive hate-speech association therefore persists under the timing sensitivity check, with smaller contemporaneous estimates. Timing differences are descriptive and have not been formally tested.
+
+AIC favours lagged M5 among the compared models in both periods; BIC favours M4. The planned lagged specification remains the main analysis, with contemporaneous exposure reported as a sensitivity check. These comparisons do not establish causality.
+
+Implementation: `04_code/02_descriptives/06_party_hate_sample_audit.R` and `04_code/03_models/08_party_hate_timing_comparison.R`. Remaining checks include the upstream causes of contextual missingness, an in-person interview sensitivity analysis for R1–R11, and examination of the within-country Gini variation available after adjustment. Weighting and exposure measurement uncertainty remain outstanding.
+
+#### In-person interview sensitivity
+
+Restricting the R1–R11 analysis to confirmed in-person interviews reduced the sample from 498,461 to 494,990 respondents, excluding 3,422 video interviews and 49 records with unavailable mode information. All 38 countries and 273 country-rounds remained. Original country-round exposure values were retained. As country-round membership was unchanged, recalculating the contextual decompositions left them unchanged. Individual covariates were recentred on the restricted sample. All four models converged without warnings or singular fits.
+
+The estimates were essentially unchanged. The M5 within-country hate-speech coefficient changed from 0.0942 to 0.0928 [0.0277, 0.158]. The M6 primary interaction changed from 0.0351 to 0.0360 [−0.0207, 0.0927], and the M7 secondary interaction changed from 0.0108 to 0.0101 [−0.0074, 0.0277]. The within-country Gini estimates remained close to zero. These results indicate that the substantive conclusions are insensitive to excluding video interviews and records with unavailable mode information in the analysed sample. The all-mode specification remains the main analysis.
+
+Implementation: `04_code/03_models/09_party_hate_mode_sensitivity.R`. The mode sensitivity check is complete. Remaining work includes examining the within-country Gini variation available after adjustment, investigating the upstream causes of missing contextual values, and addressing weighting and exposure measurement uncertainty.
+
+#### Within-country Gini variation diagnostic
+
+A diagnostic using equally weighted country-rounds examined Gini variation in the fitted samples. The within-country Gini SD was 0.901 in R1–R9 and 0.985 in R1–R11. After adjustment for country and round effects, within-country GDP, unemployment and hate speech, the residual SD was 0.853 and 0.941 respectively. This retained 89.6% and 91.2% of the initial within-country sum of squares. Hate speech accounted for only an additional 0.05 and 0.35 percentage points of the initial within-country variation after the other adjustments.
+
+All 33 repeatedly observed countries in R1–R9 and all 35 in R1–R11 exhibited Gini variation. The median within-country Gini range was approximately 2.08 points in both periods. Countries represented by a single round cannot contribute within-country Gini changes.
+
+Variation was unevenly distributed: the five largest country shares accounted for approximately 49% of adjusted variation in R1–R9 and 46% in R1–R11. Bulgaria contributed 17.8% in R1–R11 and Sweden 9.4%. These descriptive shares are not regression weights or measures of coefficient influence.
+
+The diagnostic does not suggest that the near-zero Gini coefficients result from the contextual controls absorbing most of the available within-country variation. It does not reproduce the respondent-level mixed-model weighting, assess interaction precision, or incorporate exposure measurement uncertainty. The estimated within-country inequality–trust association remains weak under the fitted specifications, without establishing a zero population association.
+
+Implementation: `04_code/02_descriptives/07_gini_variation_audit.R`.
