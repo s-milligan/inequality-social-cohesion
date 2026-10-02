@@ -1,0 +1,363 @@
+---
+title: "Party hate speech, inequality and generalised trust"
+subtitle: "Model construction and interpretation"
+format:
+  html:
+    toc: true
+    code-fold: false
+    code-copy: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: false
+---
+
+## Purpose and status
+
+This notebook explains the first party hate-speech moderation models, implementing the working specification recorded on 1 October 2026. The outcome is generalised trust, measured by the ESS item `ppltrst`. The analysis asks whether the association between within-country income inequality and trust varies with the political hate-speech context.
+
+The notebook reads results produced by `04_code/03_models/06_party_hate_moderation.R`. It does not estimate models. The narrative interpretation records the results reviewed on 2 October 2026 and should be revisited if the underlying outputs change.
+
+The broader motivation concerns social cohesion, but the measured outcome and the empirical claims concern generalised trust. Party hate speech is a specific dimension of political discourse and does not capture every form of divisive rhetoric.
+
+## Required inputs
+
+The analysis script must have been run before rendering this notebook. Its saved outputs are expected under `05_output/tables/party_hate_moderation/`. These generated files remain local rather than being tracked in the public repository.
+
+```{r}
+#| label: setup
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(knitr)
+library(ggplot2)
+
+output_dir <- here(
+  "05_output", "tables", "party_hate_moderation"
+)
+
+read_result <- function(filename) {
+  path <- file.path(output_dir, filename)
+
+  if (!file.exists(path)) {
+    stop(
+      "Missing output: ", path,
+      "\nRun 04_code/03_models/06_party_hate_moderation.R first."
+    )
+  }
+
+  read_csv(path, show_col_types = FALSE)
+}
+
+order_periods <- function(x) {
+  x |>
+    mutate(
+      sample = factor(sample, levels = c("R1-R9", "R1-R11"))
+    )
+}
+```
+
+## Exposure and outcome
+
+Generalised trust is measured on the ESS 0–10 scale. Income inequality is the previously constructed one-year-lagged SWIID Gini exposure. GDP per capita and unemployment also use the existing lagged contextual measures.
+
+Party hate speech is measured using V-Dem `v2smpolhate`. The unsuffixed variable is an interval-scale estimate. Its direction is reversed by multiplying by −1 so that higher values indicate more hate speech. A reversed value of zero is not an absence-of-hate-speech threshold.
+
+The main models use `party_hate_lag1`, which is already reversed in the exposure-construction script. It must not be reversed again during modelling.
+
+Annual contextual values are aggregated to country-rounds using respondent shares across known interview years. Lagged values refer to the year before each interview year. This preserves the existing exposure-construction approach when fieldwork spans more than one calendar year. Lagging establishes an ordering convention but does not by itself establish causality.
+
+## Analysis samples
+
+Models are estimated separately for ESS R1–R9 and R1–R11. Within each period, all models use a common complete-case sample for trust, age, gender, education, inequality, hate speech, GDP and unemployment.
+
+Contextual decompositions are calculated after establishing this sample. Only country-rounds with at least one retained respondent contribute to the country means. Each contributing round receives equal weight within its country; the number of respondents in the round does not determine its weight in the decomposition.
+
+```{r}
+#| label: sample-flow
+
+sample_flow <- bind_rows(
+  read_result("r1_r9_sample_flow.csv"),
+  read_result("r1_r11_sample_flow.csv")
+) |>
+  order_periods()
+
+kable(
+  sample_flow,
+  caption = "Sample construction for the two analytical periods."
+)
+```
+
+The fitted samples contain 419,618 respondents from 37 countries and 226 country-rounds in R1–R9, and 498,461 respondents from 38 countries and 273 country-rounds in R1–R11. Contextual exclusions are documented in the accompanying sensitivity notebook.
+
+## Within-country and between-country components
+
+For country $c$ and ESS round $t$, define the within-country Gini deviation as:
+
+$$
+G^{W}_{ct}=G_{ct}-\overline{G}_{c}.
+$$
+
+The between-country component is the country mean centred around the equal-country grand mean:
+
+$$
+G^{B}_{c}=\overline{G}_{c}
+-\frac{1}{C}\sum_{c=1}^{C}\overline{G}_{c}.
+$$
+
+The same construction is applied to party hate speech, producing $H^{W}_{ct}$ and $H^{B}_{c}$, and to the macro controls. The between-country grand mean weights countries equally, regardless of their number of observed rounds.
+
+The following excerpt illustrates the Gini and hate-speech construction. It is explanatory code and is not executed when rendering.
+
+```{r}
+#| label: decomposition-example
+#| eval: false
+
+# model_dat has already been restricted to the common sample.
+context <- model_dat |>
+  distinct(
+    cntry, essround,
+    gini_swiid_lag1, party_hate_lag1
+  ) |>
+  group_by(cntry) |>
+  mutate(
+    gini_mean = mean(gini_swiid_lag1),
+    gini_w = gini_swiid_lag1 - gini_mean,
+    hate_mean = mean(party_hate_lag1),
+    hate_w = party_hate_lag1 - hate_mean
+  ) |>
+  ungroup()
+
+# One row per country ensures equal-country grand-mean centring.
+grand_means <- context |>
+  distinct(cntry, gini_mean, hate_mean) |>
+  summarise(
+    gini = mean(gini_mean),
+    hate = mean(hate_mean)
+  )
+
+context <- context |>
+  mutate(
+    gini_b = gini_mean - grand_means$gini,
+    hate_b = hate_mean - grand_means$hate
+  )
+```
+
+Mean-centring makes the mean of the within-country predictor zero within each country. It does not force the regression coefficient towards zero. The within-country Gini coefficient describes the trust difference associated with a one-point higher Gini relative to that country's average, conditional on the model.
+
+## Why the interaction product is also decomposed
+
+The primary interaction starts with:
+
+$$
+P_{ct}=G^{W}_{ct}H^{W}_{ct}.
+$$
+
+Even though both component variables have country means of zero, their product need not. Its country mean captures their average co-movement across the observed rounds. Entering the raw product alone would constrain its within-country and between-country associations to have the same coefficient.
+
+The implementation therefore constructs:
+
+$$
+P^{W}_{ct}=P_{ct}-\overline{P}_{c},
+\qquad
+P^{B}_{c}=\overline{P}_{c}
+-\frac{1}{C}\sum_{c=1}^{C}\overline{P}_{c}.
+$$
+
+In the scripts these are `gh_w` and `gh_b`. The primary moderation coefficient is attached to `gh_w`; `gh_b` accounts separately for the country-average product.
+
+```{r}
+#| label: interaction-example
+#| eval: false
+
+context <- context |>
+  mutate(gh_product = gini_w * hate_w) |>
+  group_by(cntry) |>
+  mutate(
+    gh_mean = mean(gh_product),
+    gh_w = gh_product - gh_mean
+  ) |>
+  ungroup()
+
+product_grand_mean <- context |>
+  distinct(cntry, gh_mean) |>
+  summarise(value = mean(gh_mean)) |>
+  pull(value)
+
+context <- context |>
+  mutate(
+    gh_b = gh_mean - product_grand_mean,
+    gini_w_hate_b = gini_w * hate_b
+  )
+```
+
+The secondary interaction is $G^{W}_{ct}H^{B}_{c}$, stored as `gini_w_hate_b`. Its mean within each country is zero because $H^{B}_{c}$ is constant within country and $G^{W}_{ct}$ has mean zero.
+
+## Model sequence
+
+| Model | Added terms and purpose |
+|---|---|
+| M4 | Gini within and between components, macro controls, individual controls and ESS-round effects |
+| M5 | Adds hate-speech within and between components |
+| M6 | Adds `gh_w` and `gh_b` for the decomposed primary interaction |
+| M7 | Adds `gini_w_hate_b` for the secondary interaction |
+
+All models include country and country-round random intercepts. Individual controls are centred age in decades, its square, gender with Man as the reference category, and centred years of education. Macro controls are within and between components of log GDP per capita and unemployment. GDP components are multiplied by ten, so their coefficients represent a 0.1 log-point difference.
+
+Estimation uses unweighted maximum likelihood with `lme4::lmer`, the `bobyqa` optimiser and a maximum of 200,000 function evaluations. Models include no random slopes. Survey weighting and exposure measurement uncertainty are not addressed in these initial fits.
+
+```{r}
+#| label: formula-example
+#| eval: false
+
+m4 <- ppltrst ~
+  gini_w + gini_b +
+  gdp_w_10 + gdp_b_10 +
+  unemployment_w + unemployment_b +
+  round_factor +
+  age_decade + age_decade2 + gender + education_c +
+  (1 | cntry) + (1 | country_round)
+
+m5 <- update(m4, . ~ . + hate_w + hate_b)
+m6 <- update(m5, . ~ . + gh_w + gh_b)
+m7 <- update(m6, . ~ . + gini_w_hate_b)
+```
+
+M5 versus M6 adds two parameters: the within-country product deviation and its country mean. A joint model comparison would therefore not isolate the primary moderation coefficient.
+
+## Estimation diagnostics and coefficients
+
+```{r}
+#| label: model-diagnostics
+
+diagnostics <- read_result("model_diagnostics.csv") |>
+  order_periods() |>
+  arrange(sample, model)
+
+kable(
+  diagnostics |>
+    select(sample, model, n, singular, optimizer_code,
+           convergence_messages, warnings, dropped_terms),
+  caption = "Numerical diagnostics for the initial models."
+)
+
+kable(
+  diagnostics |>
+    select(sample, model, AIC, BIC),
+  digits = 1,
+  caption = "Information criteria; compare models within each period."
+)
+```
+
+All eight fits completed without warnings, singularity or dropped terms. AIC favours M5 in both periods, while BIC favours M4. Information criteria should not be compared across the different analytical periods as though they used the same data.
+
+```{r}
+#| label: focused-coefficients
+
+coefficients <- read_result("focused_results.csv") |>
+  order_periods() |>
+  arrange(sample, model, term)
+
+kable(
+  coefficients |>
+    filter(term %in% c(
+      "gini_w", "hate_w", "gh_w", "gini_w_hate_b"
+    )) |>
+    select(sample, model, term, estimate, std_error, conf_low, conf_high),
+  digits = 4,
+  caption = "Selected coefficients and approximate 95% Wald intervals."
+)
+```
+
+The M5 within-country Gini estimates are close to zero: approximately 0.0092 in R1–R9 and 0.0052 in R1–R11. The within-country hate-speech association is positive, at 0.144 and 0.0942 respectively. These associations are conditional and observational.
+
+The M6 primary interaction is positive but uncertain: 0.0608 in R1–R9 and 0.0351 in R1–R11, with both confidence intervals including zero. The M7 secondary interaction is also uncertain. A positive primary interaction means that the estimated inequality–trust slope becomes more positive as hate speech rises above its country average.
+
+These are pooled slopes shared across countries. The random intercepts allow baseline trust levels to differ, but the models do not estimate a separate Gini slope for each country.
+
+## Conditional inequality slopes
+
+In M6, the conditional within-country Gini slope is:
+
+$$
+\beta_{G^{W}}+\theta_{P^{W}}H^{W}_{ct}.
+$$
+
+In M7, it is:
+
+$$
+\beta_{G^{W}}+\theta_{P^{W}}H^{W}_{ct}
++\kappa H^{B}_{c}.
+$$
+
+These expressions hold the country summaries, including the country mean of the interaction product, fixed. They do not represent changing one observed Gini value and recomputing all country summaries.
+
+Consequently, the Gini main coefficient in M6 is the slope at the country's average hate-speech level. In M7 it additionally refers to a country at the equal-country grand mean of hate speech.
+
+The plotted intervals use the full covariance matrix of the relevant fixed coefficients. They are pointwise approximate 95% Wald intervals, not simultaneous confidence bands. A conditional slope excluding zero at a particular moderator value does not establish that the interaction coefficient differs from zero.
+
+```{r}
+#| label: conditional-slopes
+#| fig-width: 10
+#| fig-height: 5
+#| fig-cap: "M6 conditional Gini slopes. Country summaries are held fixed. Rug marks show observed country-rounds in countries with within-country Gini variation."
+
+slopes <- read_result("conditional_slopes.csv") |>
+  order_periods()
+
+observed <- slopes |>
+  filter(model == "M6")
+
+curve <- observed |>
+  distinct(sample, hate_w, estimate, conf_low, conf_high) |>
+  arrange(sample, hate_w)
+
+ggplot(curve, aes(hate_w, estimate)) +
+  geom_ribbon(
+    aes(ymin = conf_low, ymax = conf_high),
+    fill = "#2878A5", alpha = 0.18
+  ) +
+  geom_hline(
+    yintercept = 0, linetype = "dashed", colour = "grey45"
+  ) +
+  geom_line(colour = "#2878A5", linewidth = 0.8) +
+  geom_rug(
+    data = observed,
+    aes(x = hate_w),
+    inherit.aes = FALSE,
+    sides = "b",
+    alpha = 0.25
+  ) +
+  facet_wrap(~ sample) +
+  labs(
+    x = "Lagged hate speech: deviation from country mean",
+    y = "Conditional trust slope per Gini point"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+The R1–R11 interval includes zero throughout the displayed range. In R1–R9, the conditional slope is slightly above zero at higher moderator values, where observations are relatively sparse. The straight lines reflect the specified linear interaction; the rug shows where moderator values are observed, rather than establishing sufficient joint support for every interpretation.
+
+## Interpretation and remaining limitations
+
+The initial models provide no clear evidence of the proposed moderation. The positive within-country hate-speech association warrants further investigation but should not be interpreted as a beneficial causal effect of hate speech.
+
+Country influence, contextual exclusions, exposure timing, interview mode and available Gini variation are examined in [the sensitivity notebook](07_party_hate_sensitivity_checks.qmd). Weighting and propagation of exposure measurement uncertainty remain outstanding. The differences between R1–R9 and R1–R11 estimates are descriptive and have not been formally tested.
+
+## Implementation references
+
+- `04_code/03_models/06_party_hate_moderation.R`
+- `04_code/02_descriptives/05_party_hate_moderation_slopes.R`
+- `02_research-design/research_design.qmd`
+
+## Rendering environment
+
+```{r}
+#| label: session-information
+#| code-fold: true
+
+sessionInfo()
+```

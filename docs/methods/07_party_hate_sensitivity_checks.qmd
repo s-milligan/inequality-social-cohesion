@@ -1,0 +1,462 @@
+---
+title: "Sensitivity checks for party hate-speech moderation"
+subtitle: "Country influence, exclusions, timing, interview mode and Gini variation"
+format:
+  html:
+    toc: true
+    code-fold: false
+    code-copy: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: false
+---
+
+## Purpose and status
+
+This notebook documents the sensitivity checks completed on 2 October 2026 following the first party hate-speech moderation models. The model construction and coefficient interpretation are explained in [the moderation notebook](06_party_hate_moderation.qmd).
+
+All tables are read from saved outputs. Rendering does not refit the models or rerun the country-deletion analysis. Narrative interpretations record the results reviewed on 2 October and should be revisited if the outputs change.
+
+The checks address different questions: whether estimates depend on individual countries, why observations are excluded, whether exposure timing changes the findings, whether results depend on including video interviews, and how much within-country Gini variation remains after contextual adjustment.
+
+```{r}
+#| label: setup
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(knitr)
+
+read_result <- function(folder, filename) {
+  path <- here("05_output", "tables", folder, filename)
+
+  if (!file.exists(path)) {
+    stop(
+      "Missing saved output: ", path,
+      "\nRun the corresponding analysis script before rendering."
+    )
+  }
+
+  read_csv(path, show_col_types = FALSE)
+}
+
+order_periods <- function(x) {
+  x |>
+    mutate(
+      sample = factor(sample, levels = c("R1-R9", "R1-R11"))
+    )
+}
+```
+
+## Country influence
+
+### Question and implementation
+
+Does the positive hate-speech association or the primary interaction depend heavily on a particular country?
+
+The analysis refits M5 and M6 after omitting each country in turn: 37 omissions per model in R1–R9 and 38 per model in R1–R11, for 150 refits. It uses the original complete-case model frames and retains their centring.
+
+Removing an entire country leaves the remaining countries' within-country means and deviations unchanged. Retaining the original grand-mean centres also preserves the coefficient reference points. The full-sample models remain the principal estimates.
+
+The following excerpt illustrates the deletion step. It is not executed during rendering.
+
+```{r}
+#| label: deletion-example
+#| eval: false
+
+reduced <- model.frame(full_fit) |>
+  filter(as.character(cntry) != omitted_country) |>
+  droplevels()
+
+fit <- lmer(
+  formula = formula(full_fit),
+  data = reduced,
+  REML = FALSE,
+  na.action = na.fail,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 200000),
+    check.rankX = "stop.deficient"
+  )
+)
+```
+
+Each refit is checked for errors, optimiser or convergence warnings, and singularity. Changes in estimates are measured both in their original units and in units of the full-model standard error. The latter is a descriptive scale, not a test statistic.
+
+### Results
+
+```{r}
+#| label: influence-results
+
+influence_diagnostics <- read_result(
+  "party_hate_country_influence", "diagnostic_summary.csv"
+) |>
+  order_periods() |>
+  arrange(sample, model)
+
+influence_summary <- read_result(
+  "party_hate_country_influence", "influence_summary.csv"
+) |>
+  order_periods() |>
+  arrange(sample, model, term)
+
+largest_changes <- read_result(
+  "party_hate_country_influence", "largest_changes.csv"
+) |>
+  order_periods()
+
+kable(
+  influence_diagnostics,
+  caption = "Country-deletion refit diagnostics."
+)
+
+kable(
+  influence_summary |>
+    filter(term %in% c("hate_w", "gh_w")) |>
+    select(
+      sample, model, term, full_estimate,
+      minimum_estimate, maximum_estimate, n_sign_changes
+    ),
+  digits = 4,
+  caption = "Coefficient ranges across clean country-deletion refits."
+)
+
+kable(
+  largest_changes |>
+    filter(term %in% c("hate_w", "gh_w")) |>
+    arrange(sample, model, term, desc(abs(change_in_full_se))) |>
+    select(
+      sample, model, term, omitted_country,
+      full_estimate, estimate, conf_low, conf_high,
+      change_in_full_se
+    ),
+  digits = 4,
+  caption = "Largest coefficient changes by omitted country."
+)
+```
+
+All 150 refits completed cleanly. The M5 hate-speech coefficient remained positive in every refit, ranging from 0.120 to 0.187 in R1–R9 and from 0.0672 to 0.116 in R1–R11. Omitting Hungary reduced the R1–R11 estimate sufficiently for its confidence interval to include zero. The positive direction therefore survives every individual omission, while magnitude and precision show some sensitivity.
+
+The M6 primary interaction remained positive throughout, ranging from 0.0313 to 0.0844 in R1–R9 and from 0.0233 to 0.0653 in R1–R11. Omitting Poland approximately halved the R1–R9 estimate. Omitting Sweden increased the R1–R11 estimate most.
+
+Some deletion-specific intervals exclude zero, but this does not justify selecting those samples for the main analysis. No country is excluded on the basis of this check. Single-country deletion does not rule out sensitivity to combinations of countries or other specification choices.
+
+## Contextual exclusions
+
+### Question and implementation
+
+Which country-rounds are excluded, which contextual values are missing, and does the audit reproduce the fitted samples?
+
+The audit reconstructs contextual and individual completeness from the input data. It checks whether matching rows exist in the macro and discourse tables, identifies missing contextual values, and compares both sample counts and country-round membership with the saved model outputs.
+
+```{r}
+#| label: exclusion-results
+
+excluded <- read_result(
+  "party_hate_sample_audit", "excluded_country_rounds.csv"
+)
+
+sample_check <- read_result(
+  "party_hate_sample_audit", "sample_check.csv"
+) |>
+  order_periods()
+
+key_differences <- read_result(
+  "party_hate_sample_audit", "key_differences.csv"
+)
+
+stopifnot(
+  all(sample_check$matches_saved_counts),
+  nrow(key_differences) == 0L
+)
+
+# The full-period table includes the two baseline exclusions.
+kable(
+  excluded |>
+    filter(sample == "R1-R11") |>
+    select(cntry, essround, n_respondents, missing_variables),
+  caption = "Excluded country-rounds in R1–R11."
+)
+
+kable(
+  sample_check |>
+    select(
+      sample, n_context_excluded,
+      n_respondents_context_excluded,
+      n_respondents_reconstructed,
+      n_countries_reconstructed,
+      n_country_rounds_reconstructed,
+      matches_saved_counts
+    ),
+  caption = "Audit reproduction of the saved analytical samples."
+)
+```
+
+The audit reproduces both samples exactly. R1–R9 excludes Estonia R5 and Kosovo R6, accounting for 3,088 respondents before individual complete-case restrictions. R1–R11 additionally excludes Israel R11, Iceland R10 and R11, Montenegro R11, and Ukraine R11, bringing the contextual exclusions to 10,009 respondents.
+
+All excluded country-rounds have corresponding rows in the contextual tables. The exclusions therefore concern missing values within matched rows. Estonia R5 has the previously documented absence of interview-year information. The audit identifies the missing variables elsewhere but does not establish their upstream causes.
+
+The missing-variable counts overlap: a country-round can lack more than one variable. They should not be summed to obtain the total number of excluded respondents.
+
+## Lagged versus contemporaneous hate speech
+
+### Question and implementation
+
+Do the findings change when party hate speech is measured contemporaneously rather than one year before the interview year?
+
+Only hate-speech timing changes. Gini, GDP and unemployment retain their lagged definitions. Within each period, both timing specifications require the same respondents and contributing country-rounds. The contextual decompositions are recalculated separately for each hate-speech timing.
+
+M4 is fitted once per period because it contains no hate-speech terms. M5–M7 are fitted under both timings, giving 14 fits altogether.
+
+### Results
+
+```{r}
+#| label: timing-results
+
+timing_samples <- read_result(
+  "party_hate_timing_comparison", "sample_summary.csv"
+) |>
+  order_periods()
+
+timing_diagnostics <- read_result(
+  "party_hate_timing_comparison", "model_diagnostics.csv"
+) |>
+  order_periods()
+
+timing_coefficients <- read_result(
+  "party_hate_timing_comparison", "focused_results.csv"
+) |>
+  order_periods()
+
+kable(
+  timing_samples,
+  caption = "Common samples for the timing comparison."
+)
+
+kable(
+  timing_diagnostics |>
+    select(
+      sample, timing, model, n, singular,
+      optimizer_code, convergence_messages, warnings
+    ),
+  caption = "Timing-comparison model diagnostics."
+)
+
+kable(
+  timing_coefficients |>
+    filter(
+      (model == "M5" & term == "hate_w") |
+      (model == "M6" & term == "gh_w") |
+      (model == "M7" & term == "gini_w_hate_b")
+    ) |>
+    arrange(sample, model, timing) |>
+    select(
+      sample, timing, model, term,
+      estimate, conf_low, conf_high
+    ),
+  digits = 4,
+  caption = "Hate-speech and interaction estimates under both timings."
+)
+```
+
+No additional respondents were excluded for the contemporaneous measure. All 14 models fitted cleanly, and the lagged estimates reproduced the original results at the reported precision.
+
+Contemporaneous exposure produced smaller positive hate-speech estimates. In M5 these were 0.113 [0.0395, 0.187] for R1–R9 and 0.0662 [0.0044, 0.128] for R1–R11, compared with lagged estimates of 0.144 and 0.0942.
+
+The contemporaneous M6 interaction estimates were 0.0508 [−0.0122, 0.114] and 0.0257 [−0.0296, 0.0811]. Both interaction specifications remained uncertain under either timing. Differences between timing-specific estimates are descriptive and have not been formally tested.
+
+AIC favours lagged M5 among the compared models in both periods, while BIC favours M4. The planned lagged specification remains the main analysis. This comparison does not establish a causal lag structure.
+
+## In-person interview restriction
+
+### Question and implementation
+
+Are the R1–R11 findings sensitive to including video interviews or records with unavailable interview mode?
+
+The sensitivity analysis restricts the existing complete-case sample to confirmed in-person interviews and refits M4–M7. The original country-round exposure values are retained; they are not reconstructed using only in-person respondents. Contextual decompositions are recalculated on the contributing country-rounds, and individual covariates are recentred on the restricted sample.
+
+This is a sample-restriction sensitivity check rather than an estimate of a causal interview-mode effect.
+
+```{r}
+#| label: mode-results
+
+mode_samples <- read_result(
+  "party_hate_mode_sensitivity", "sample_summary.csv"
+)
+
+mode_diagnostics <- read_result(
+  "party_hate_mode_sensitivity", "model_diagnostics.csv"
+)
+
+mode_comparison <- read_result(
+  "party_hate_mode_sensitivity", "coefficient_comparison.csv"
+)
+
+lost_rounds <- read_result(
+  "party_hate_mode_sensitivity", "lost_country_rounds.csv"
+)
+
+kable(
+  mode_samples,
+  caption = "All-mode and in-person-only samples."
+)
+
+kable(
+  mode_diagnostics,
+  caption = "In-person model diagnostics."
+)
+
+kable(
+  mode_comparison |>
+    filter(
+      (model == "M5" & term %in% c("gini_w", "hate_w")) |
+      (model == "M6" & term == "gh_w") |
+      (model == "M7" & term == "gini_w_hate_b")
+    ),
+  digits = 4,
+  caption = "Selected estimates before and after the mode restriction."
+)
+
+cat("Country-rounds lost entirely:", nrow(lost_rounds))
+```
+
+The restriction removed 3,471 respondents: 3,422 video interviews and 49 records with unavailable mode information. The sample decreased from 498,461 to 494,990 respondents while retaining all 38 countries and 273 country-rounds. Because country-round membership was unchanged, the contextual decompositions were also unchanged. All four models fitted cleanly.
+
+The M5 hate-speech estimate changed from 0.0942 to 0.0928, the M6 primary interaction from 0.0351 to 0.0360, and the M7 secondary interaction from 0.0108 to 0.0101. Confidence intervals were essentially unchanged.
+
+The substantive findings are insensitive to this restriction. The all-mode sample remains the main analysis, without implying that interview mode has no effects generally. Information criteria are not used to compare these models across their different respondent samples.
+
+## Available within-country Gini variation
+
+### Question and implementation
+
+Could the near-zero Gini coefficients reflect very little within-country variation, or the absorption of that variation by round effects and contextual controls?
+
+The diagnostic uses one equally weighted observation per contributing country-round. It progressively regresses within-country Gini on country effects, round effects, within-country GDP and unemployment, and within-country hate speech.
+
+Country effects remain in every stage to isolate within-country variation. Between-country predictors are absorbed by those effects. The diagnostic is separate from the respondent-level mixed models: it does not reproduce their GLS weighting, include individual controls, or assess the precision of the interaction terms.
+
+```{r}
+#| label: gini-diagnostic-example
+#| eval: false
+
+# Each row of context represents one country-round.
+country_only <- lm(
+  gini_w ~ cntry,
+  data = context
+)
+
+fully_adjusted <- lm(
+  gini_w ~ cntry + round_factor +
+    gdp_w_10 + unemployment_w + hate_w,
+  data = context
+)
+
+# Fraction of the original within-country sum of squares remaining.
+share_remaining <-
+  sum(residuals(fully_adjusted)^2) /
+  sum(residuals(country_only)^2)
+```
+
+Residual SD is calculated across the country-round residuals using the same denominator at each stage. It is not the regression residual standard error, which uses residual degrees of freedom.
+
+### Results
+
+```{r}
+#| label: gini-variation-results
+
+gini_overview <- read_result(
+  "gini_variation_audit", "variation_overview.csv"
+) |>
+  order_periods()
+
+gini_adjustment <- read_result(
+  "gini_variation_audit", "adjustment_summary.csv"
+) |>
+  order_periods()
+
+gini_countries <- read_result(
+  "gini_variation_audit", "country_variation.csv"
+) |>
+  order_periods()
+
+largest_adjusted <- read_result(
+  "gini_variation_audit", "largest_adjusted_shares.csv"
+) |>
+  order_periods()
+
+kable(
+  gini_overview |>
+    select(
+      sample, n_repeated_countries,
+      n_near_constant_repeated_countries,
+      within_gini_sd, median_country_gini_sd,
+      median_country_gini_range
+    ),
+  digits = 3,
+  caption = "Within-country Gini variation in the fitted samples."
+)
+
+kable(
+  gini_adjustment |>
+    select(
+      sample, stage, residual_gini_sd,
+      share_within_variation_remaining,
+      additional_share_explained
+    ),
+  digits = 4,
+  caption = "Gini variation remaining after successive adjustments."
+)
+
+kable(
+  gini_countries |>
+    filter(!repeated_country | near_constant) |>
+    select(sample, cntry, n_rounds, gini_range),
+  digits = 3,
+  caption = "Countries with a single round or near-constant Gini."
+)
+
+kable(
+  largest_adjusted,
+  digits = 4,
+  caption = "Largest country shares of adjusted Gini variation."
+)
+```
+
+The within-country Gini SD was 0.901 in R1–R9 and 0.985 in R1–R11. After all diagnostic adjustments it was 0.853 and 0.941, retaining 89.6% and 91.2% of the initial within-country sum of squares.
+
+Round effects account for approximately 4–6% of the initial variation, with GDP and unemployment accounting for another 4–5%. Hate speech accounts for only an additional 0.05 percentage points in R1–R9 and 0.35 percentage points in R1–R11. The diagnostic does not suggest that these controls absorb most of the available within-country Gini variation.
+
+All 33 repeatedly observed countries in R1–R9 and all 35 in R1–R11 exhibit Gini variation. Single-round countries cannot contribute within-country Gini changes. The median within-country Gini range is approximately 2.08 points in both periods.
+
+Variation is unevenly distributed. The five largest country shares account for approximately 49% of adjusted variation in R1–R9 and 46% in R1–R11. Bulgaria contributes 17.8% in R1–R11 and Sweden 9.4%. These are descriptive shares of predictor variation, not regression weights or measures of coefficient influence.
+
+## Overall assessment
+
+The first models and checks consistently produce a weak estimated conditional within-country inequality–trust association and uncertain moderation estimates. The positive within-country hate-speech association survives both exposure timings and the in-person restriction, and its sign survives every single-country deletion. Its magnitude and precision remain somewhat sensitive to country composition and exposure timing.
+
+These results do not establish that inequality has no effect, that hate speech causally increases trust, or that all relevant biases have been addressed. The diagnostic evidence does not point to contextual controls absorbing most of the observed within-country Gini variation.
+
+Outstanding work includes tracing the upstream causes of contextual missingness, deciding and implementing the weighting strategy, and propagating SWIID and V-Dem measurement uncertainty. The present confidence intervals condition on the constructed contextual exposure estimates.
+
+## Implementation references
+
+| Script | Purpose |
+|---|---|
+| `04_code/03_models/07_party_hate_country_influence.R` | Country-deletion refits |
+| `04_code/02_descriptives/06_party_hate_sample_audit.R` | Contextual exclusions and sample validation |
+| `04_code/03_models/08_party_hate_timing_comparison.R` | Lagged versus contemporaneous exposure |
+| `04_code/03_models/09_party_hate_mode_sensitivity.R` | In-person restriction |
+| `04_code/02_descriptives/07_gini_variation_audit.R` | Available within-country Gini variation |
+
+## Rendering environment
+
+```{r}
+#| label: session-information
+#| code-fold: true
+
+sessionInfo()
+```
