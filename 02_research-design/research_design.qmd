@@ -3,9 +3,17 @@ title: "Research design"
 format: gfm
 ---
 
+# Purpose and current status
+
+This document records the current design, implementation status and outstanding decisions for the generalised-trust paper within the wider Inequality and cohesion project. It consolidates the work completed through 2 October 2026. Detailed implementation explanations and results are provided in the accompanying methods notebooks.
+
+The first party hate-speech moderation models have been estimated, together with country-influence, contextual-exclusion, exposure-timing, interview-mode and Gini-variation checks. Survey weighting and exposure measurement uncertainty remain unresolved. The current findings are provisional.
+
+This is a working research-design document, not a preregistration. The initial party hate-speech specification was recorded on 1 October after the measurement audit and before inspecting discourse-interaction results. Results reviewed on 2 October are distinguished below from those earlier design choices.
+
 # Scope and research questions
 
-This document specifies the current paper within the wider Inequality and cohesion project. It incorporates the decision of 22 September 2026 to focus on generalised trust. Social cohesion remains the broader motivation; the paper does not claim to measure cohesion in its entirety.
+The paper focuses on generalised trust, following the decision of 22 September 2026. Social cohesion provides the broader motivation; the paper does not claim to measure cohesion in its entirety.
 
 The core research question is:
 
@@ -15,369 +23,257 @@ The moderation question is:
 
 > Is the within-country association between economic inequality and generalised trust more negative in country-periods characterised by more divisive political discourse?
 
-The intended journal is *European Societies*. The literature framing should engage with Delhey and Newton (2003), Damhuis and Westheuser (2024), and Hastings (2018). The proposed contribution concerns political discourse as a conditioning context for the inequality–trust relationship. Claims about novelty will require a fuller literature assessment.
+The current empirical operationalisation addresses one specific dimension of the moderation question: political parties' use of group-directed hate speech. It is not a comprehensive measure of divisive discourse.
 
-# Conceptual scope
+The intended journal is *European Societies*. The literature framing should engage with Delhey and Newton (2003), Damhuis and Westheuser (2024), and Hastings (2018). Claims about the novelty of the political-discourse contribution require a fuller literature assessment.
 
-Social cohesion concerns the quality and strength of relations among members of a society and is broader than generalised trust. Generalised trust concerns expectations of the trustworthiness of other people. It is the substantive outcome of this paper, rather than a proxy for social cohesion as a whole.
+# Conceptual scope and hypotheses
 
-The earlier design distinguished attitudinal and behavioural dimensions of horizontal cohesion. That distinction remains useful for the wider project, but social connectedness and participation are no longer co-primary outcomes of this paper. Political or institutional trust is also conceptually distinct and is not a core outcome.
+Generalised trust concerns expectations of the trustworthiness of other people. Social cohesion is broader and encompasses other aspects of social relations. Economic inequality, economic security, institutional quality and political discourse are potential explanatory conditions rather than components of the measured outcome.
 
-Economic equality, economic security, institutional quality and political discourse are potential explanatory conditions, not components of the outcome construct.
+Social connectedness, participation and political or institutional trust are not co-primary outcomes of this paper. Their existing preparation and exploratory analyses remain available for the wider project.
 
-# Analytical focus
-
-The paper distinguishes two forms of association:
-
-1. Between-country differences: Do countries with persistently higher inequality have lower generalised trust?
-2. Within-country change: When inequality changes within a country, does generalised trust change correspondingly?
-
-The within-country relationship is the primary empirical focus. Between-country differences remain substantively relevant but are more vulnerable to confounding by persistent historical, institutional, cultural and economic differences.
-
-The analysis uses repeated cross-sections and does not follow changes in trust within the same individuals. It is observational and does not establish a definitive causal effect of inequality or discourse.
-
-# Hypotheses
-
-## Economic inequality and generalised trust
+The analysis distinguishes between-country differences from within-country change. The within-country relationship is the primary empirical focus. Between-country differences remain relevant but are more vulnerable to confounding by persistent historical, institutional, cultural and economic differences.
 
 **H1a: Within-country inequality and trust.** Increases in economic inequality within countries are associated with decreases in generalised trust.
 
 **H1b: Between-country inequality and trust.** Countries with persistently higher economic inequality exhibit lower generalised trust.
 
-## Political discourse
-
 **H2: Political-discourse moderation.** The within-country association between economic inequality and generalised trust is more negative in country-periods characterised by more divisive political discourse.
 
-Political discourse may shape how people interpret economic disparities, social relations and group conflict. This motivates the moderation test but does not establish the mechanism empirically.
+Political discourse may shape interpretations of economic disparities, social relations and group conflict. This motivates H2 but does not establish the mechanism empirically. The party hate-speech analysis tests a specific operationalisation of H2.
 
-H2 replaces H3 in the earlier two-outcome design. The former behavioural-cohesion hypotheses are deferred to the wider project. Existing scripts and output labels should be checked before adopting the new numbering throughout the repository.
+H2 replaces H3 in the earlier two-outcome design. The behavioural-cohesion hypotheses are deferred. Older repository labels should be checked when preparing the manuscript and consolidating documentation.
 
-H2 remains conditional on constructing a theoretically defensible and empirically feasible country-period measure.
+These hypotheses are retained as originally formulated; they are not rewritten to match the observed estimates.
 
-# Outcome
+# Data and measures
 
-The primary outcome is the European Social Survey item `ppltrst`, measured from 0 ("you can't be too careful") to 10 ("most people can be trusted"). This single item provides the direct operationalisation of generalised trust.
+## Generalised trust
 
-Two related items are retained for a possible alternative operationalisation:
+The primary outcome is ESS `ppltrst`, measured from 0 ("you can't be too careful") to 10 ("most people can be trusted").
 
-- `pplfair`: whether most people would try to take advantage of the respondent or try to be fair;
-- `pplhlp`: whether people mostly look out for themselves or mostly try to be helpful.
-
-A composite trust/fairness/helpfulness scale is a planned sensitivity analysis, subject to conceptual and measurement checks. It broadens the measured content beyond trust alone and should be labelled accordingly.
-
-# Main explanatory variable
+The related items `pplfair` and `pplhlp` are retained for a possible trust/fairness/helpfulness composite. Such a measure broadens the content beyond trust alone and requires conceptual and measurement checks before use. This sensitivity analysis has not yet been implemented.
 
 ## Economic inequality
 
-The main contextual exposure is country-level inequality in equivalised household disposable income after taxes and transfers.
+The main exposure is the Gini coefficient for equivalised household disposable income after taxes and transfers. The primary source is SWIID version 9.92.
 
-The preferred operationalisation is the Gini coefficient.
+The original R1–R9 coverage assessment found lagged SWIID values for all 374 country × interview-year cells with known interview year. Exact one-year-lagged OECD IDD coverage was available for 274 of these cells, representing approximately 71% of respondents. OECD gaps were geographically uneven, particularly affecting parts of Eastern and Southeastern Europe.
 
-The primary inequality measure is the disposable-income Gini coefficient from the Standardized World Income Inequality Database (SWIID), version 9.92.
+These figures describe the original R1–R9 coverage assessment, not the extended analytical sample. The R1–R11 model exclusions are documented below.
 
-SWIID is used as the primary series because it provides complete country-year coverage for the usable ESS Rounds 1–9 analytical sample. Coverage checks showed that a one-year-lagged SWIID Gini was available for all 374 ESS country × interview-year cells with known interview year.
+OECD IDD remains a planned alternative inequality source. Its comparison with SWIID should distinguish changes in measurement from changes in sample composition.
 
-The OECD Income Distribution Database (IDD) will be used as a robustness measure. Exact one-year-lagged OECD coverage was available for 274 of 374 ESS country × interview-year cells, representing approximately 71% of respondents. Missing OECD coverage is geographically uneven and disproportionately affects several Eastern and Southeastern European countries.
+The current models use SWIID summary estimates. The 100 imputations have been loaded in earlier project work, but exposure construction, model fitting and pooling across them remain outstanding.
 
-The use of SWIID therefore preserves the wider European scope of the analysis, while OECD provides an important robustness check using a more directly observed inequality series.
+## Party hate speech
 
-Because SWIID values are model-based estimates with associated uncertainty, the final analysis should propagate that uncertainty rather than treat summary-series estimates as perfectly observed. The 100 imputations have been loaded according to the project work record; fitting and pooling the models across them remains outstanding.
+The selected indicator is V-Dem `v2smpolhate` from the Country-Year Full+Others dataset, version 16. It assesses major political parties' use of rhetoric intended to insult, offend or intimidate groups defined by characteristics such as race, religion, sexual orientation, national origin or disability.
 
-# Survey data
+The unsuffixed interval-scale estimate is multiplied by −1 so that higher values indicate more hate speech. The constructed variables include `party_hate_lag1` and `party_hate_contemp`. Negative values are valid scale locations; zero does not mean an absence of hate speech.
 
-## European Social Survey
+The main specification uses one-year-lagged hate speech. Contemporaneous hate speech has been implemented as a sensitivity check.
 
-The analysis uses repeated cross-sectional individual-level ESS data. Rounds 1–9 provide the baseline comparison, and an extended dataset incorporates Rounds 10–11. The original baseline file, `ess_analysis.rds`, is preserved.
+Reversed `v2dlcountr` concerns disregard for counterarguments, including suppression and non-engagement. It is retained as a conceptually distinct alternative rather than the preferred hostile-rhetoric measure. `v2cacamps` concerns societal political polarisation and is also distinct from party communication.
 
-The extension script, `08_build_ess_extended_analysis.R`, imports the later rounds from `ess10_f2f.dta` and `ess11_f2f.dta`, which are designated as interviewer-administered inputs in the preparation workflow. It retains all respondents from these files rather than imposing an additional respondent-level mode restriction.
+Source documentation: [V-Dem Codebook v16](https://v-dem.net/documents/70/codebook_v16.pdf).
 
-For Rounds 10–11, the script retains the original interview-mode labels and constructs a standardised variable distinguishing in-person and video interviews where recognised. Other labels and missing values are retained. For Rounds 1–9, the script assigns an in-person classification based on the baseline survey-design assumption rather than checking respondent-level mode information.
+## Individual and macroeconomic controls
 
-The exported mode diagnostics identify 35,263 in-person interviews (93.8%), 2,312 video interviews (6.15%) and 36 interviews with mode labelled "Not available" (0.10%) in Round 10. Round 11 contains 48,240 in-person interviews (96.3%), 1,846 video interviews (3.68%) and 30 interviews with mode labelled "Not available" (0.06%). These figures describe the imported respondents before model-specific complete-case exclusions. No self-administered category appears in these diagnostics. The current extended models retain all three categories among otherwise eligible respondents. A planned sensitivity analysis will restrict the later rounds to confirmed in-person interviews, with attention to the resulting changes in country-round coverage.
+The controlled models include:
 
-Analytical inclusion depends on available trust, inequality and individual covariate data, with an additional contextual-data requirement for the macro-adjusted models. The extension itself preserves respondents with missing analytical variables; complete-case exclusions are applied in the modelling script.
+- age, centred on the relevant respondent sample mean and divided by ten;
+- the square of centred age in decades;
+- gender, with Man as the reference category and Woman as the other modelled category;
+- years of education, centred on the relevant respondent sample mean;
+- within-country and between-country components of lagged log GDP per capita at purchasing power parity;
+- within-country and between-country components of lagged unemployment.
 
-The decision about which sample leads the paper remains open. Comparisons between Rounds 1–9 and Rounds 1–11 must consider changes in country coverage, fieldwork period and interview mode.
+The GDP components are multiplied by ten, so their coefficients represent a 0.1 log-point difference. Gini and unemployment retain the input-data units.
 
-The SWIID and OECD coverage figures reported above refer to the original Rounds 1–9 assessment, not to the extended Rounds 1–11 sample.
+Individual covariates are not decomposed into within-country and between-country components. Labour-force status is not included. Additional controls require a substantive rationale, including consideration of whether they represent confounders, competing explanations or mechanisms.
+
+# ESS coverage and interview mode
+
+The analysis uses repeated cross-sectional ESS data. R1–R9 provides the baseline comparator, while the extended dataset incorporates R10–R11. The original `ess_analysis.rds` baseline file is preserved.
+
+The extension script, `08_build_ess_extended_analysis.R`, imports `ess10_f2f.dta` and `ess11_f2f.dta`. It retains all respondents from those inputs and preserves interview-mode information rather than imposing a respondent-level in-person restriction.
+
+For R10–R11, recognised mode labels distinguish in-person and video interviews; other labels and missing information are retained. For R1–R9, in-person mode is assigned from the baseline survey-design assumption rather than verified from respondent-level mode information.
+
+| Round | Imported respondents | In-person | Video | Mode unavailable |
+|---|---:|---:|---:|---:|
+| 10 | 37,611 | 35,263 | 2,312 | 36 |
+| 11 | 50,116 | 48,240 | 1,846 | 30 |
+
+These counts precede model-specific exclusions. No self-administered category appears in these imported-data diagnostics; the analysis does not represent every possible ESS mode or input file.
+
+The current main specifications retain all imported mode categories among otherwise eligible respondents. The completed in-person sensitivity check produced essentially unchanged results. The choice of whether R1–R9 or R1–R11 leads the paper remains open and should consider country coverage, fieldwork period and comparability.
 
 # Time structure and contextual matching
 
-The contextual survey unit is the country-round.
-
-ESS fieldwork frequently spans two calendar years. In the Rounds 1–9 sample, a majority of country-rounds contain interviews conducted in more than one calendar year. Contextual variables are therefore not assigned using a single nominal ESS round year.
-
-Instead, annual inequality values are aggregated to the country-round level using the observed proportion of respondents interviewed in each calendar year.
-
-For example, if 80% of respondents in a country-round were interviewed in 2016 and 20% in 2017, the one-year-lagged inequality exposure is:
+The contextual unit is the country-round. Individuals are observed once, while countries are observed repeatedly:
 
 $$
-0.8 \times Gini_{2015} + 0.2 \times Gini_{2016}
+Individuals_i \subset CountryRounds_{ct} \subset Countries_c.
 $$
 
-The primary inequality specification uses a one-year lag, linking social trust measured during fieldwork at time \(t\) to inequality measured approximately one year earlier:
+The data therefore support analysis of contextual change across repeated cross-sections, not change in trust within the same individuals.
+
+ESS fieldwork often spans multiple calendar years. Annual contextual values are aggregated using respondent shares across known interview years rather than assigning a single nominal year to each ESS round.
+
+For example, if 80% of dated interviews occurred in 2016 and 20% in 2017, the lagged Gini exposure is:
 
 $$
-Inequality_{c,t-1} \rightarrow Trust_{i,c,t}
+0.8 \times Gini_{2015} + 0.2 \times Gini_{2016}.
 $$
 
-Contemporaneous inequality will be examined as a robustness specification.
+Baseline timing counts are available in `ess_inequality_coverage.csv`; later-round counts are in `ess_post9_country_round_year_coverage.csv`.
 
-The country-round remains the contextual unit rather than splitting individual ESS rounds into separate country-year surveys. This preserves the survey structure while incorporating actual fieldwork timing into the contextual exposure.
+Interview-year shares are calculated among dated respondents. Respondents without interview years remain eligible and receive their country-round's constructed exposure where available. This assumes that the dated interviews adequately represent the fieldwork timing of the whole country-round.
 
-One unresolved timing case remains: Estonia in ESS Round 5 lacks usable interview-year information in the downloaded timing variables. The earlier preparation record retained it in the underlying ESS dataset without a constructed inequality exposure. Its current treatment must be checked against the latest construction script before finalising the sample.
+The discourse construction requires observed values for every annual component. Missing contextual years are not interpolated or silently removed by renormalising the available components.
 
-# Data structure
+Incomplete interview-year information affects 24 country-rounds, including Estonia R5, which has no usable dates. Particularly substantial partial gaps occur in Spain, Iceland, Latvia and Croatia in R9, and Czechia in R1. Verification against fieldwork documentation remains outstanding.
 
-The data have a hierarchical repeated-cross-sectional structure:
+Estonia R5 remains in the underlying ESS data but is excluded from the current fitted samples because the required contextual exposures are missing. Its present treatment is established; recovering usable timing information remains unresolved.
 
-$$
-Individuals_{i} \subset CountryPeriods_{ct} \subset Countries_{c}
-$$
-
-Individual respondents are observed once, while countries are observed repeatedly across ESS periods.
-
-The analytical dataset contains, or is intended to incorporate:
-
-* individual-level ESS variables;
-* country and period identifiers;
-* country-period inequality;
-* country-period macroeconomic controls;
-* later, if feasible, country-period political-discourse measures.
+Lagging places the contextual measure before the interview year but does not establish causality. Contemporaneous hate speech has been examined; contemporaneous inequality remains a separate outstanding sensitivity check.
 
 # Empirical strategy
 
-## Analytical samples
+## Earlier baseline model sequence
 
-The current implementation is specified in `04_code/03_models/04_extended_rewb.R`. It estimates the same model sequence separately for ESS Rounds 1–9 and Rounds 1–11.
-
-Within each period, M1–M3 use a common sample with non-missing generalised trust, inequality, age, gender and years of education. Requiring the individual covariates for all three models allows comparisons without changes in sample composition.
-
-The macro-adjusted analysis additionally requires non-missing lagged log GDP per capita and unemployment. M3 is re-estimated on this macro-complete sample before adding the macroeconomic controls in M4.
-
-The modelling script applies no additional survey-mode restriction or mode adjustment. The upstream extension uses the designated interviewer-administered Rounds 10–11 input files and retains their mode information, including video interviews where identified. The input-sample diagnostics confirm that later-round interviews are predominantly in-person, with smaller video and unavailable-mode categories. Mode composition within the fitted samples and sensitivity to excluding the latter categories remain to be assessed.
-
-## Within-between decomposition
-
-Country-level inequality is decomposed into between-country and within-country components:
-
-$$
-Gini_{ct} =
-\overline{Gini}_{c} +
-(Gini_{ct} - \overline{Gini}_{c})
-$$
-
-Country means are calculated from unique country-round observations, giving each available round equal weight within a country rather than weighting it by the number of respondents.
-
-The between-country component is centred on the unweighted mean of the country means. The within-country component is the deviation from the country's own mean.
-
-Decompositions are recalculated separately for the Rounds 1–9 and Rounds 1–11 analyses. For the macro-complete models, inequality, log GDP per capita and unemployment are decomposed using the country-rounds with complete data on all three contextual variables.
-
-These contextual decompositions are calculated before individual complete-case exclusions. They therefore refer to the available contextual observations, rather than necessarily to the final set of country-rounds contributing respondents to each fitted model.
-
-## Model sequence
-
-All models are linear mixed models with generalised trust (`ppltrst`, 0–10) as the outcome. They include random intercepts for countries and country-rounds, with country-round identifiers unique within the pooled dataset. No random slopes are fitted.
+`04_code/03_models/04_extended_rewb.R` estimates the earlier M1–M4 sequence separately for R1–R9 and R1–R11.
 
 | Model | Specification |
 |---|---|
-| M1 | Within-country and between-country inequality |
+| M1 | Within-country and between-country Gini |
 | M2 | M1 plus ESS-round fixed effects |
-| M3 | M2 plus age, age squared, gender and years of education |
-| M3 macro sample | M3 re-estimated on the macro-complete sample, using its recalculated inequality components |
-| M4 | M3 macro sample plus within-country and between-country components of lagged log GDP per capita and unemployment |
+| M3 | M2 plus individual controls |
+| M3 macro sample | M3 re-estimated on the macro-complete sample |
+| M4 | M3 macro sample plus within-country and between-country GDP and unemployment |
 
-ESS-round fixed effects account for differences common to countries participating in a given survey round. They are not interview-year fixed effects.
+M1–M3 share an individual complete-case sample within each period. M3 macro sample and M4 share the additional macro-data restriction.
 
-Models are estimated by maximum likelihood using `lme4::lmer` with `REML = FALSE`.
+In this earlier script, contextual means are calculated before individual complete-case exclusions. The macro-model decompositions use country-rounds with complete Gini, GDP and unemployment data. This implementation should remain distinguished from the newer moderation workflow.
 
-The script exports fixed-effect estimates, approximate 95% Wald confidence intervals, log likelihood, AIC, BIC and singular-fit indicators. Numerical convergence and model diagnostics still need to be assessed from the fitted models and their outputs.
+Any earlier post-R9 interaction analysis is a separate analysis and should be documented from its own script. Differences between the separately estimated R1–R9 and R1–R11 coefficients are not themselves formal period-interaction tests.
 
-## Comparing specifications and periods
+## Current moderation samples
 
-M1–M3 are compared on their common sample. M3 macro sample and M4 are compared on the common macro-complete sample, which separates the addition of macroeconomic controls from the sample restriction.
+`04_code/03_models/06_party_hate_moderation.R` estimates M4–M7 on a common sample within each period, requiring complete trust, individual controls, Gini, party hate speech, GDP and unemployment.
 
-Differences between the Rounds 1–9 and Rounds 1–11 estimates are descriptive. The two analyses overlap, and their country means and within-country deviations are recalculated over different periods. Subtracting their coefficients is not a formal test of a change in the inequality–trust relationship.
+Contextual means are calculated from unique country-rounds contributing at least one respondent to that final sample. Each contributing round receives equal weight within its country. Between-country components are centred around the equal-country mean of country means.
 
-This script includes neither a post-Round-9 interaction nor a political-discourse interaction. Any separate period-interaction analysis must be documented from its own script.
+M4 is re-estimated within this workflow so that adding hate speech and interactions does not also change the sample or the contextual decomposition.
 
-# Individual-level covariates
+| Sample | Input respondents | Context-complete respondents | Final respondents | Countries | Country-rounds |
+|---|---:|---:|---:|---:|---:|
+| R1–R9 | 430,870 | 427,782 | 419,618 | 37 | 226 |
+| R1–R11 | 518,597 | 508,588 | 498,461 | 38 | 273 |
 
-M3 and M4 adjust for:
+The exclusion audit reproduced both the saved counts and country-round membership exactly.
 
-- age, centred on the relevant respondent sample mean and divided by ten;
-- the square of this centred age-in-decades variable;
-- gender, with "Man" as the reference category and "Woman" as the other modelled category;
-- years of education, centred on the relevant respondent sample mean.
+## Within–between decomposition
 
-Age and education are centred separately for the main and
-macro-complete samples within each analytical period.
+For Gini $G$ and hate speech $H$, the within-country components are:
 
-These covariates account for selected differences in respondent composition. They are not decomposed into within-country and between-country components.
+$$
+G^W_{ct}=G_{ct}-\overline{G}_c,
+\qquad
+H^W_{ct}=H_{ct}-\overline{H}_c.
+$$
 
-Labour-force status is not included in the current model sequence. Its inclusion remains a possible extension requiring a substantive rationale.
+Between-country components are the country means centred around their equal-country grand means. Decompositions are recalculated separately for each analytical period and, where appropriate, each sensitivity sample.
 
-# Country-level covariates
+Mean-centring changes the predictor's reference point and separates contextual variation. It does not mechanically make its regression coefficient close to zero.
 
-M4 includes one-year-lagged log GDP per capita at purchasing power parity and the one-year-lagged unemployment rate.
+## Interaction construction
 
-Both variables enter as separate within-country and between-country components. Between-country components are grand-mean centred.
+The primary interaction concerns within-country Gini and within-country hate speech. Their product can have a nonzero country mean, so it is itself decomposed:
 
-The log GDP components are multiplied by ten, so their coefficients refer to a 0.1 log-point difference in GDP per capita. Inequality and unemployment retain the units supplied by the input data.
+$$
+P_{ct}=G^W_{ct}H^W_{ct},
+\qquad
+P^W_{ct}=P_{ct}-\overline{P}_c,
+\qquad
+P^B_c=\overline{P}_c-\overline{P}.
+$$
 
-The upstream construction script must document the source series, units and country-round aggregation of these contextual variables.
+Here $\overline{P}$ is the equal-country mean of the country-average products. The script names the within and centred between product components `gh_w` and `gh_b`.
 
-Additional contextual controls will require an explicit rationale as potential confounders or competing explanations. Variables that may represent mechanisms should not be added automatically.
+The primary moderation coefficient is attached to `gh_w`. The country-average product enters separately rather than being constrained to have the same coefficient.
 
-# Survey weights
+The secondary interaction is $G^W_{ct}H^B_c$, named `gini_w_hate_b`. Its within-country mean is zero because the moderator's between component is constant within country.
 
-The current model sequence is unweighted: no ESS survey weights are supplied to `lmer`.
+## Moderation model sequence
 
-The extended dataset retains `analysis_weight`. For Rounds 1–9, this is inherited from the baseline dataset. For Rounds 10–11, the preparation script uses a positive, non-missing `anweight` where available, otherwise a positive, non-missing product of `pspwght` and `pweight`. Retaining this variable does not mean it is used in the current models. The separate weight components are not retained in this script's output and would need to be recovered from the source data if required for alternative weighting strategies.
+| Model | Specification |
+|---|---|
+| M4 | Gini components, individual and macro controls, and ESS-round effects |
+| M5 | M4 plus within-country and between-country hate speech |
+| M6 | M5 plus `gh_w` and `gh_b` |
+| M7 | M6 plus `gini_w_hate_b` |
 
-Equal weighting of country-round observations when constructing country means does not imply equal country weighting in model estimation.
+Models are linear mixed models with country and country-round random intercepts and no random slopes. ESS-round effects represent survey rounds, not interview-year fixed effects.
 
-The final weighting strategy remains an open methodological
-decision. Sensitivity analyses should consider the role of ESS design and post-stratification weights, their implementation in the multilevel framework, and the intended contribution of different countries to the estimand.
+Estimation uses unweighted maximum likelihood with `lme4::lmer`, `REML = FALSE`, the `bobyqa` optimiser and a maximum of 200,000 function evaluations. Outputs include coefficients, approximate 95% Wald intervals, fit statistics and numerical diagnostics.
 
-# Political-discourse moderation
+## Coefficient interpretation
 
-## Construct and operationalisation
+Gini slopes are pooled across countries; these models do not estimate a distinct Gini slope for each country.
 
-The substantive hypothesis concerns whether divisive political discourse conditions the association between economic inequality and generalised trust. The initial empirical test operationalises one specific dimension of that broader concept: political parties' use of group-directed hate speech. It should therefore be interpreted as a test involving party hate speech, rather than a comprehensive measure of divisive discourse.
+In M6, the conditional within-country Gini slope is:
 
-The selected indicator is V-Dem `v2smpolhate`, from the Country-Year Full+Others dataset, version 16. It assesses the frequency with which major political parties use rhetoric intended to insult, offend or intimidate groups defined by characteristics such as race, religion, sexual orientation, national origin or disability.
+$$
+\beta_{G^W}+\theta_{P^W}H^W_{ct}.
+$$
 
-The interval-scale estimate is multiplied by minus one so that higher values indicate more frequent hate speech. The resulting variable is named `party_hate`. Negative values are valid locations on the reversed measurement scale; zero does not represent the absence of hate speech.
+In M7 it is:
 
-The earlier candidate, reversed `v2dlcountr`, measures disregard for counterarguments and also encompasses suppression and non-engagement. It is retained as an alternative contextual measure, but is no longer the preferred operationalisation of hostile rhetoric. `v2cacamps` concerns societal political polarisation and is retained as a distinct contextual alternative, not an interchangeable measure of party communication.
+$$
+\beta_{G^W}+\theta_{P^W}H^W_{ct}+\kappa H^B_c.
+$$
 
-Source documentation: [V-Dem Codebook v16](https://v-dem.net/documents/70/codebook_v16.pdf), sections 7.5.11 and 3.7.1.3.
+These expressions hold country summaries, including the country-average product, fixed. They do not describe changing one observation and recomputing all country means.
 
-## Country-round construction
+The plotted intervals use the covariance matrix of the relevant coefficients and are pointwise approximate Wald intervals. A conditional slope excluding zero at a particular moderator value does not establish that the interaction coefficient differs from zero.
 
-Annual indicator values are aggregated to ESS country-rounds using the proportion of dated interviews conducted in each calendar year. Baseline timing counts are taken from `ess_inequality_coverage.csv`; later-round counts are taken from `ess_post9_country_round_year_coverage.csv`.
+M5 versus M6 adds both product components, so a joint comparison would not isolate the primary within-country interaction.
 
-Both contemporaneous and one-year-lagged exposures have been constructed. The initial model will use the one-year lag to place the contextual measure before the interview year. Contemporaneous exposure is a planned sensitivity specification. This timing choice does not establish causality.
+# Contextual exclusions
 
-Interview-year shares are calculated among respondents with known interview years. Respondents without dates remain in the respondent dataset and receive the contextual exposure of their country-round where one can be constructed. This assumes that dated respondents adequately represent the country-round's fieldwork timing.
+| Country | Round | Respondents | Missing contextual variables |
+|---|---:|---:|---|
+| Estonia | 5 | 1,793 | Gini, hate speech, GDP, unemployment |
+| Kosovo | 6 | 1,295 | Unemployment |
+| Israel | 11 | 906 | Gini |
+| Iceland | 10 | 903 | Gini |
+| Iceland | 11 | 842 | Gini |
+| Montenegro | 11 | 1,609 | Gini |
+| Ukraine | 11 | 2,661 | Gini, unemployment |
 
-All annual components must have an observed indicator value for an exposure to be calculated. Missing contextual years are not interpolated or omitted through renormalisation. Country-rounds without usable timing information retain missing exposures.
+Estonia and Kosovo account for the two R1–R9 exclusions. All seven account for the R1–R11 exclusions. The totals are 3,088 and 10,009 respondents respectively, before individual complete-case restrictions.
 
-## Measurement audit completed on 1 October 2026
+All excluded country-rounds have matching rows in the contextual tables. The audit identifies missing values within those rows. Estonia R5 has the known timing problem; upstream causes of the remaining missing values still require investigation.
 
-All three candidate indicators have complete annual coverage for the 39 ESS countries over 2000–2025. Both timing specifications were successfully constructed for 279 of 280 ESS country-rounds. Estonia Round 5 is the sole exception because no usable interview-year information is available. There are no missing V-Dem matches among the dated interview-year components.
+# Measurement audit completed on 1 October 2026
 
-At the observed ESS country-rounds, lagged party hate speech varies in 28 of the 33 countries with repeated observations in Rounds 1–9, and in 33 of the 35 countries with repeated observations in Rounds 1–11. These are pre-model audit counts; complete-case exclusions may reduce the available information.
+The three candidate V-Dem indicators have complete annual coverage for the 39 ESS countries over 2000–2025. Both timing specifications were constructed for 279 of 280 input country-rounds; Estonia R5 is the sole exception. There are no missing V-Dem matches among dated interview-year components.
 
-Country trajectories were inspected before fitting discourse interactions. Lithuania and Finland showed notable differences between contemporaneous and lagged exposures. Inspection of their annual source estimates confirmed that movements are present in the V-Dem data. This check does not establish their substantive validity. Both countries are retained, with country influence and indicator uncertainty reserved for sensitivity assessment.
+Before model-specific exclusions, lagged party hate speech varies in 28 of the 33 countries with repeated observations in R1–R9 and in 33 of the 35 repeatedly observed countries in R1–R11. These are measurement-audit counts, not claims about the precise information available in each fitted model.
 
-Incomplete timing information affects 24 country-rounds, including Estonia Round 5. Particularly substantial partial gaps occur in Spain, Iceland, Latvia and Croatia in Round 9, and Czechia in Round 1. Fieldwork documentation should be checked to assess whether undated interviews could alter the annual exposure weights. These timing limitations also apply to the inequality exposures constructed from the same baseline counts.
+Country trajectories were inspected before estimating the discourse interactions. Notable movements and timing differences in Lithuania and Finland were checked against annual source estimates and were present in the V-Dem data. This rules out those particular movements being solely an aggregation artefact; it does not establish their substantive validity.
 
-## Initial moderation specification
+The lagged party hate-speech specification and interaction decomposition were recorded before inspecting the discourse-interaction results. Country influence has subsequently been assessed; indicator uncertainty remains outstanding.
 
-The initial analysis will extend M4 separately for Rounds 1–9 and Rounds 1–11. Nested models within each period will use the same complete-case sample. Contextual decompositions will use unique country-rounds contributing to that sample, giving each observed round equal weight within a country.
+# Results reviewed on 2 October 2026
 
-Party hate speech will be decomposed into its country mean and its deviation from that mean. The main moderation test concerns the interaction between within-country inequality and within-country hate speech. A second interaction concerns within-country inequality and country-mean hate speech.
+## Initial moderation models
 
-The first interaction asks whether the inequality–trust association is more negative when hate speech is higher than usual within a country. The second asks whether the association differs according to countries' average levels of hate speech.
-
-The product of the two within-country deviations can itself have a nonzero country mean. Its country mean and its deviation from that mean will therefore enter separately, allowing the within-country interaction to be distinguished from between-country differences in the average product.
-
-Models will retain the existing M4 individual and macroeconomic controls, ESS-round fixed effects, and country and country-round random intercepts. Relevant lower-order terms will be included. Initial estimation will remain unweighted, consistent with the existing model sequence.
-
-Interaction estimates will be interpreted using marginal inequality slopes over supported combinations of the moderator components, with uncertainty. The first models will use indicator point estimates; they will not yet propagate V-Dem measurement uncertainty or SWIID imputation uncertainty.
-
-## Respondent party-affiliation extension
-
-The ESS vote and party-closeness data have been prepared but have not yet been used in substantive models. Linking these records to external party characteristics remains a separate planned strand.
-
-V-Party `v2paopresp` is a candidate measure of party leadership's demonisation of political opponents. Its expert-coded coverage through 2019 limits its application to the later ESS rounds. Historical party scores will not automatically be carried forward as if they measured current rhetoric.
-
-Reported vote and party closeness will remain distinguishable. Associations involving the rhetoric of an affiliated party will be interpreted as variation by party affiliation, not as causal effects of individual exposure to rhetoric.
-
-A national aggregate based on party scores and election vote shares does not require respondent-level ESS party matching. The respondent-affiliation analysis does require that linkage.
-
-Source documentation: [V-Party Codebook v2](https://v-dem.net/documents/6/vparty_codebook_v2.pdf).
-
-# Wider-project extensions
-
-These extensions are retained for future scoping and are not co-primary analyses in the current paper:
-
-- **Social connectedness and participation:** `sclmeet` captures frequency of social contact; `sclact` captures participation relative to same-age peers. Retain the coverage and distribution audit. Analyse them separately unless a composite is justified conceptually and empirically.
-- **Political or institutional trust:** retain the existing exploratory work, while distinguishing it from generalised trust.
-- **Migration and diversity:** define the substantive question, candidate ESS and contextual variables, coverage, and their role as confounders, moderators or mechanisms before fitting an extension.
-- **Perceived social conflict:** consider only if repeated, comparable measurement adds a distinct contribution; a complementary dataset may be required.
-
-# Robustness and sensitivity analyses
-
-Planned robustness checks include:
-
-- OECD IDD rather than SWIID inequality;
-- contemporaneous rather than one-year-lagged inequality;
-- sensitivity to SWIID measurement uncertainty;
-- alternative treatment of ESS fieldwork timing;
-- inclusion of later ESS rounds where survey-mode comparability permits;
-- alternative individual-level adjustment sets;
-- alternative country-level adjustment sets;
-- alternative survey-weighting strategies;
-- a three-item trust/fairness/helpfulness scale rather than `ppltrst` alone;
-- influence of individual countries or country-periods;
-- alternative specifications of common temporal trends.
-
-Prioritise these checks against the established baseline and extended models. Their inclusion here records planned checks, not completed analyses.
-
-# Implementation status and next tasks
-
-This status summary combines the uploaded design files with the recorded September work sessions. The repository and current model scripts have not been inspected for this revision.
-
-## Work already reported as completed
-
-- ESS country-round/interview-year coverage assessment and inequality-source coverage comparison.
-- Construction of lagged SWIID inequality exposures and analysis-ready ESS data.
-- Addition of GDP per capita and unemployment controls; estimation of baseline and extended REWB models.
-- Construction of the Rounds 1–11 extension while preserving the Rounds 1–9 baseline and interview-mode information.
-- Preparation of the ESS political supplement and party inventory.
-- Initial cohesion/migration-variable preparation and descriptive outcome audit.
-
-## Next tasks
-
-1. Check the upstream data-construction scripts and saved model diagnostics, particularly survey-mode handling, contextual units, sample exclusions and the Estonia Round 5 timing anomaly.
-2. Verify and construct the provisional main V-Dem measure; inspect coverage, distributions and within-country variation.
-3. Specify and estimate the inequality–discourse moderation model, retaining clear baseline and extended-sample comparisons.
-4. Complete V-Party import, matching and contextual validation construction.
-5. Fit and pool models across the SWIID imputations and prioritise the remaining sensitivity checks.
-6. Synchronise methods pages and READMEs, including hypothesis numbering and the narrower trust framing.
-7. Scope migration/diversity and other extensions only after clarifying their contribution to the main paper.
-
-# Open design decisions
-
-- Which ESS sample leads the paper and the exact handling of later-round survey modes.
-- Final survey-weighting strategy and sensitivity to alternative country weighting.
-- Whether the current random-intercept structure, ESS-round fixed effects and covariate set are adequate for the final analysis, informed by model diagnostics and sensitivity checks.
-- Treatment and pooling of SWIID estimation uncertainty.
-- Sensitivity of party hate-speech moderation to contemporaneous versus lagged exposure, country influence, survey mode, weighting and alternative contextual measures.
-- Treatment of V-Dem measurement uncertainty alongside SWIID imputation uncertainty.
-- Verification of fieldwork timing in country-rounds with substantial missing interview-year information.
-- V-Party election alignment, party mapping, vote-weight source and unmatched-party treatment.
-- Current treatment of the Estonia Round 5 timing anomaly.
-
-# Recorded design choices
-
-- Generalised trust is the substantive focus of the paper; social cohesion supplies the broader motivation.
-- `ppltrst` is the primary outcome.
-- SWIID is the primary inequality source; OECD IDD is the planned inequality robustness source.
-- The primary inequality exposure is lagged by one year and aggregated to country-rounds using interview-year respondent shares.
-- Within-country inequality variation is the primary estimand; between-country inequality is estimated separately.
-- Rounds 1–9 remain a baseline comparator; Rounds 10–11 have been incorporated into an extended dataset.
-- The initial discourse analysis uses one-year-lagged party hate speech, measured by reversed V-Dem `v2smpolhate`, with separate within-country and between-country moderator components. This specification was selected after the measurement audit and before inspecting discourse-interaction results.
-
-
-### Analysis update: 2 October 2026
-
-The first party hate-speech moderation models implement the working specification recorded on 1 October. Models are estimated separately for ESS R1–R9 and R1–R11 using one-year-lagged, reversed V-Dem party hate speech. Within each period, M4–M7 use identical complete cases. Contextual means are calculated from unique contributing country-rounds, with equal round weights within countries. The primary interaction is within-country Gini × within-country hate speech; its product is itself decomposed into a country mean and a within-country deviation. The secondary interaction is within-country Gini × between-country hate speech. Estimation uses unweighted maximum likelihood, ESS-round fixed effects, individual and macro controls, and country and country-round random intercepts.
-
-The R1–R9 sample contains 419,618 respondents from 37 countries and 226 country-rounds. The R1–R11 sample contains 498,461 respondents from 38 countries and 273 country-rounds. All eight models converged without warnings, singular fits or dropped terms. Relative to the input data, contextual completeness excludes two country-rounds in R1–R9 and seven in R1–R11; their identities and missing variables remain to be audited.
+All eight initial models fitted without warnings, singular fits or dropped terms.
 
 | Estimate | R1–R9 | R1–R11 |
 |---|---:|---:|
@@ -386,42 +282,162 @@ The R1–R9 sample contains 419,618 respondents from 37 countries and 226 countr
 | Primary moderation, M6 | 0.0608 [−0.0010, 0.123] | 0.0351 [−0.0215, 0.0918] |
 | Secondary moderation, M7 | 0.0097 [−0.0099, 0.0293] | 0.0108 [−0.0068, 0.0283] |
 
-Intervals are approximate 95% Wald confidence intervals. The full-sample models provide no clear evidence of either interaction. The positive primary interaction estimates imply a more positive inequality–trust slope at higher within-country hate-speech levels. The positive within-country hate-speech association is observational and should not be interpreted causally. AIC favours M5 in both periods, whereas BIC favours M4. Differences between period-specific estimates have not been formally tested.
+Intervals are approximate 95% Wald intervals. The full-sample models provide no clear evidence of either interaction. The positive primary interaction estimates imply a more positive inequality–trust slope at higher within-country hate-speech levels.
 
-The country-influence analysis refitted M5 and M6 after omitting each country individually, retaining the original variable centring. All 150 refits completed without numerical problems. The M5 hate-speech coefficient remained positive in every refit, ranging from 0.120 to 0.187 in R1–R9 and from 0.0672 to 0.116 in R1–R11. Omitting Hungary weakened the R1–R11 association sufficiently for its confidence interval to include zero. The M6 primary interaction also remained positive throughout, ranging from 0.0313 to 0.0844 in R1–R9 and from 0.0233 to 0.0653 in R1–R11. Omitting Poland reduced the R1–R9 interaction most; omitting Sweden increased the R1–R11 interaction most. These checks support stability of direction under single-country deletion, while showing sensitivity in magnitude and precision. No country is excluded on this basis.
+The positive within-country hate-speech association is observational and should not be interpreted causally. AIC favours M5 in both periods, whereas BIC favours M4. Period-specific differences have not been formally tested.
 
-The Gini coefficients reported here are pooled within-country slopes, not country-specific slopes. In interaction models, the Gini main coefficient is conditional on the moderator components being zero. Mean-centring does not mechanically produce a near-zero coefficient.
+## Country influence
 
-Implementation: `04_code/03_models/06_party_hate_moderation.R`; `04_code/03_models/07_party_hate_country_influence.R`; and `04_code/02_descriptives/05_party_hate_moderation_slopes.R`. Generated models, diagnostics and figures remain under `05_output`.
+All 150 M5 and M6 country-deletion refits completed cleanly. Remaining respondents retained their original variable centring.
 
-#### Contextual exclusion audit and exposure timing comparison
+The M5 hate-speech coefficient remained positive throughout, ranging from 0.120 to 0.187 in R1–R9 and from 0.0672 to 0.116 in R1–R11. Omitting Hungary weakened the R1–R11 association sufficiently for its interval to include zero.
 
-The contextual exclusion audit exactly reproduced the saved respondent counts and country-round membership. R1–R9 excludes Estonia R5 (1,793 respondents; missing Gini, hate speech, GDP and unemployment) and Kosovo R6 (1,295; missing unemployment). R1–R11 additionally excludes Israel R11 (906; missing Gini), Iceland R10 (903; missing Gini), Iceland R11 (842; missing Gini), Montenegro R11 (1,609; missing Gini) and Ukraine R11 (2,661; missing Gini and unemployment). These exclusions total 3,088 respondents in R1–R9 and 10,009 in R1–R11 before individual complete-case restrictions. All excluded country-rounds have matching rows in the contextual tables. Estonia R5 has the previously documented absence of interview-year information; the upstream causes of the remaining missing values have not yet been established.
+The M6 primary interaction remained positive, ranging from 0.0313 to 0.0844 in R1–R9 and from 0.0233 to 0.0653 in R1–R11. Omitting Poland reduced the baseline-period estimate most; omitting Sweden increased the extended-period estimate most.
 
-The timing sensitivity analysis changed only party hate speech from one-year-lagged to contemporaneous exposure, retaining lagged Gini and macro controls. Both timings used identical respondents within each period, with no additional exclusions. All 14 models converged without warnings or singular fits. The lagged estimates reproduced the original results at the reported precision.
+Direction is stable under single-country deletion, while magnitude and precision show sensitivity. No country is excluded on this basis.
 
-Under contemporaneous exposure, the M5 within-country hate-speech coefficient was 0.113 [0.0395, 0.187] in R1–R9 and 0.0662 [0.0044, 0.128] in R1–R11, compared with lagged estimates of 0.144 and 0.0942. The M6 primary interaction was 0.0508 [−0.0122, 0.114] in R1–R9 and 0.0257 [−0.0296, 0.0811] in R1–R11. Both interaction specifications remained uncertain under either timing. The positive hate-speech association therefore persists under the timing sensitivity check, with smaller contemporaneous estimates. Timing differences are descriptive and have not been formally tested.
+## Hate-speech timing comparison
 
-AIC favours lagged M5 among the compared models in both periods; BIC favours M4. The planned lagged specification remains the main analysis, with contemporaneous exposure reported as a sensitivity check. These comparisons do not establish causality.
+Both timing specifications used identical respondents within each period, with no additional exclusions. Only hate-speech timing changed; Gini and macro controls remained lagged. All 14 fits completed cleanly, and the lagged estimates reproduced the original results at the reported precision.
 
-Implementation: `04_code/02_descriptives/06_party_hate_sample_audit.R` and `04_code/03_models/08_party_hate_timing_comparison.R`. Remaining checks include the upstream causes of contextual missingness, an in-person interview sensitivity analysis for R1–R11, and examination of the within-country Gini variation available after adjustment. Weighting and exposure measurement uncertainty remain outstanding.
+Contemporaneous M5 hate-speech estimates were 0.113 [0.0395, 0.187] in R1–R9 and 0.0662 [0.0044, 0.128] in R1–R11. Contemporaneous M6 interaction estimates were 0.0508 [−0.0122, 0.114] and 0.0257 [−0.0296, 0.0811].
 
-#### In-person interview sensitivity
+The positive hate-speech association persists with smaller contemporaneous estimates. Both interactions remain uncertain. AIC favours lagged M5 among the compared models, and the planned lagged specification remains primary. This does not establish a causal lag structure.
 
-Restricting the R1–R11 analysis to confirmed in-person interviews reduced the sample from 498,461 to 494,990 respondents, excluding 3,422 video interviews and 49 records with unavailable mode information. All 38 countries and 273 country-rounds remained. Original country-round exposure values were retained. As country-round membership was unchanged, recalculating the contextual decompositions left them unchanged. Individual covariates were recentred on the restricted sample. All four models converged without warnings or singular fits.
+## In-person interview sensitivity
 
-The estimates were essentially unchanged. The M5 within-country hate-speech coefficient changed from 0.0942 to 0.0928 [0.0277, 0.158]. The M6 primary interaction changed from 0.0351 to 0.0360 [−0.0207, 0.0927], and the M7 secondary interaction changed from 0.0108 to 0.0101 [−0.0074, 0.0277]. The within-country Gini estimates remained close to zero. These results indicate that the substantive conclusions are insensitive to excluding video interviews and records with unavailable mode information in the analysed sample. The all-mode specification remains the main analysis.
+Restricting R1–R11 to confirmed in-person interviews reduced the sample from 498,461 to 494,990 respondents, excluding 3,422 video interviews and 49 records with unavailable mode information. All 38 countries and 273 country-rounds remained.
 
-Implementation: `04_code/03_models/09_party_hate_mode_sensitivity.R`. The mode sensitivity check is complete. Remaining work includes examining the within-country Gini variation available after adjustment, investigating the upstream causes of missing contextual values, and addressing weighting and exposure measurement uncertainty.
+Original country-round exposure values were retained. With unchanged country-round membership, the contextual decompositions were unchanged. Individual covariates were recentred. All four fits completed cleanly.
 
-#### Within-country Gini variation diagnostic
+The M5 hate-speech coefficient changed from 0.0942 to 0.0928 [0.0277, 0.158]. The M6 primary interaction changed from 0.0351 to 0.0360 [−0.0207, 0.0927], and the M7 secondary interaction from 0.0108 to 0.0101 [−0.0074, 0.0277].
 
-A diagnostic using equally weighted country-rounds examined Gini variation in the fitted samples. The within-country Gini SD was 0.901 in R1–R9 and 0.985 in R1–R11. After adjustment for country and round effects, within-country GDP, unemployment and hate speech, the residual SD was 0.853 and 0.941 respectively. This retained 89.6% and 91.2% of the initial within-country sum of squares. Hate speech accounted for only an additional 0.05 and 0.35 percentage points of the initial within-country variation after the other adjustments.
+The findings are insensitive to this restriction in the analysed sample. All-mode specifications remain the current main analyses. This is not evidence that interview mode has no effects generally.
 
-All 33 repeatedly observed countries in R1–R9 and all 35 in R1–R11 exhibited Gini variation. The median within-country Gini range was approximately 2.08 points in both periods. Countries represented by a single round cannot contribute within-country Gini changes.
+## Within-country Gini variation
 
-Variation was unevenly distributed: the five largest country shares accounted for approximately 49% of adjusted variation in R1–R9 and 46% in R1–R11. Bulgaria contributed 17.8% in R1–R11 and Sweden 9.4%. These descriptive shares are not regression weights or measures of coefficient influence.
+The equally weighted country-round diagnostic found within-country Gini SDs of 0.901 in R1–R9 and 0.985 in R1–R11. After adjustment for country and round effects, within-country GDP, unemployment and hate speech, residual SDs were 0.853 and 0.941.
 
-The diagnostic does not suggest that the near-zero Gini coefficients result from the contextual controls absorbing most of the available within-country variation. It does not reproduce the respondent-level mixed-model weighting, assess interaction precision, or incorporate exposure measurement uncertainty. The estimated within-country inequality–trust association remains weak under the fitted specifications, without establishing a zero population association.
+This retained 89.6% and 91.2% of the initial within-country sum of squares. Adding hate speech accounted for only another 0.05 and 0.35 percentage points of initial within-country variation.
 
-Implementation: `04_code/02_descriptives/07_gini_variation_audit.R`.
+All 33 repeatedly observed countries in R1–R9 and all 35 in R1–R11 exhibited Gini variation. The median within-country range was approximately 2.08 points in both periods. Single-round countries cannot contribute within-country Gini changes.
+
+The five largest country shares accounted for approximately 49% of adjusted variation in R1–R9 and 46% in R1–R11. Bulgaria contributed 17.8% in R1–R11 and Sweden 9.4%. These descriptive shares are not regression weights or coefficient-influence measures.
+
+The diagnostic does not suggest that contextual controls absorb most of the available within-country Gini variation. It does not reproduce mixed-model weighting, assess interaction precision or incorporate exposure uncertainty. The weak estimated inequality association does not establish a zero population effect.
+
+# Survey weighting and measurement uncertainty
+
+## Weighting
+
+All current models are unweighted. Equal round weights in contextual decomposition do not imply equal country weights in model estimation.
+
+The extended dataset retains `analysis_weight`. For R1–R9 this is inherited from the baseline data. For R10–R11 the preparation script uses positive, non-missing `anweight` where available, otherwise a positive, non-missing product of `pspwght` and `pweight`.
+
+The separate weight components are not retained in that script's output and may need to be recovered from source data. Retaining `analysis_weight` does not mean it has been used in the fitted models.
+
+The next methodological task is to define the intended estimand and decide how ESS design, post-stratification and population-size weighting should operate in this multilevel analysis. Implementation and sensitivity comparisons should follow that decision.
+
+## Exposure uncertainty
+
+The reported models condition on constructed exposure point estimates. They do not propagate SWIID imputation uncertainty or V-Dem measurement uncertainty.
+
+SWIID uncertainty requires constructing the relevant exposures and decompositions across imputations, fitting the specified models and applying an appropriate pooling procedure. The available 100 imputations have not yet been carried through that workflow.
+
+V-Dem uncertainty requires a documented approach consistent with the available uncertainty information and the dependence structure of the estimates. Its combination with SWIID uncertainty remains an open methodological decision.
+
+# Completed and outstanding sensitivity work
+
+| Check | Status through 2 October 2026 |
+|---|---|
+| R1–R9 and R1–R11 moderation models | Completed |
+| Country deletion for M5 and M6 | Completed; 150 clean refits |
+| Contextual exclusions and sample reproduction | Completed; upstream causes partly unresolved |
+| Contemporaneous versus lagged hate speech | Completed on identical samples |
+| In-person restriction for R1–R11 | Completed |
+| Within-country Gini variation diagnostic | Completed |
+| OECD IDD instead of SWIID | Outstanding |
+| Contemporaneous instead of lagged inequality | Outstanding |
+| SWIID imputation uncertainty | Outstanding |
+| V-Dem measurement uncertainty | Outstanding |
+| Survey weighting | Outstanding |
+| Verification and sensitivity of fieldwork timing | Outstanding |
+| Country-round influence | Outstanding; distinct from country deletion |
+| Alternative temporal trends, random effects or adjustment sets | To be prioritised with substantive justification |
+| Trust/fairness/helpfulness composite | Outstanding conceptual and measurement checks |
+| Alternative discourse indicators | To be scoped as distinct constructs |
+
+Completion of one check does not resolve every associated design question. For example, the in-person restriction addresses one mode concern but does not settle all comparability issues between the two analytical periods.
+
+# Deferred extensions
+
+## Respondent party affiliation and V-Party
+
+ESS vote and party-closeness records have been prepared but remain unused in substantive models. Linking respondents to external party characteristics is a separate extension rather than a prerequisite for the current country-level hate-speech analysis.
+
+V-Party `v2paopresp` is a candidate indicator of party leadership's demonisation of opponents. Its expert-coded coverage through 2019 constrains application to later ESS rounds. Historical scores should not be carried forward automatically as current rhetoric.
+
+Vote and party closeness should remain distinguishable. Associations with the characteristics of an affiliated party would be interpreted as variation by affiliation, not causal effects of individual exposure to rhetoric.
+
+A national aggregate based on party scores and election vote shares does not require ESS respondent-level matching. An affiliation analysis does require party linkage, election alignment and a documented treatment of unmatched parties.
+
+Source documentation: [V-Party Codebook v2](https://v-dem.net/documents/6/vparty_codebook_v2.pdf).
+
+## Wider-project outcomes and explanations
+
+- Social connectedness and participation: retain the `sclmeet` and `sclact` audit; analyse separately unless a composite is justified.
+- Political or institutional trust: retain exploratory work while distinguishing the construct from generalised trust.
+- Migration and diversity: define the question, variables, coverage and explanatory role before modelling.
+- Perceived social conflict: consider only if comparable repeated measurement adds a distinct contribution.
+
+These extensions remain deferred while the main paper's weighting, uncertainty and robustness work is resolved.
+
+# Implementation and documentation
+
+## Model scripts
+
+| Script | Purpose |
+|---|---|
+| `04_code/03_models/04_extended_rewb.R` | Earlier baseline and extended M1–M4 sequence |
+| `04_code/03_models/06_party_hate_moderation.R` | Common-sample M4–M7 moderation models |
+| `04_code/03_models/07_party_hate_country_influence.R` | Country-deletion analysis |
+| `04_code/03_models/08_party_hate_timing_comparison.R` | Hate-speech timing comparison |
+| `04_code/03_models/09_party_hate_mode_sensitivity.R` | In-person sensitivity |
+
+## Descriptive and audit scripts
+
+| Script | Purpose |
+|---|---|
+| `04_code/02_descriptives/04_discourse_indicator_audit.R` | Indicator coverage, country-round construction and trajectories |
+| `04_code/02_descriptives/05_party_hate_moderation_slopes.R` | Conditional Gini-slope figure |
+| `04_code/02_descriptives/06_party_hate_sample_audit.R` | Contextual exclusions and sample verification |
+| `04_code/02_descriptives/07_gini_variation_audit.R` | Within-country Gini variation diagnostic |
+
+## Methods notebooks
+
+- [Party hate-speech moderation](../docs/methods/06_party_hate_moderation.qmd): sample construction, decomposition, model specification and coefficient interpretation.
+- [Sensitivity checks](../docs/methods/07_party_hate_sensitivity_checks.qmd): country influence, exclusions, timing, mode and Gini variation.
+
+These notebooks read saved outputs and do not refit models during rendering. Earlier methods pages document inequality construction, the ESS extension and preparation of political variables.
+
+The public repository retains code, documentation, metadata and selected figures. Raw data, working data, fitted models, checkpoints and routine generated outputs remain local. Selected figures are copied into `docs/figures/`; routine outputs remain under `05_output`.
+
+# Next tasks
+
+1. Trace the remaining contextual missingness to the source and construction steps, distinguishing unavailable source data from timing or processing limitations. Verify fieldwork timing where interview-year gaps are substantial.
+2. Decide the survey-weighting estimand and implementation, recovering separate weight components if needed. Document the choice before fitting weighted sensitivity models.
+3. Implement and pool the SWIID-imputation analysis, then determine how to incorporate V-Dem measurement uncertainty.
+4. Prioritise the remaining inequality-source, inequality-timing, model-structure and outcome-measure checks rather than adding specifications without a substantive rationale.
+5. Decide which analytical period leads the paper, complete the literature assessment and align manuscript, README and methods terminology.
+6. Revisit party-affiliation, V-Party and wider-project extensions once their contribution to the main paper is clear.
+
+# Open design decisions
+
+- Whether R1–R9 or R1–R11 leads the paper; both remain part of the current analysis.
+- The final weighting strategy and intended relative contributions of countries and respondents.
+- The treatment and pooling of SWIID uncertainty and its combination with V-Dem uncertainty.
+- Whether the random-intercept structure, round effects and adjustment set are sufficient for the final analysis.
+- Whether validated fieldwork information can resolve Estonia R5 or improve timing weights elsewhere.
+- Which remaining alternative measures and specifications warrant inclusion in the main paper.
+
+Country-level hate speech has been constructed and modelled; those tasks are no longer open. The current treatment of Estonia R5, contextual exclusions, hate-speech timing sensitivity, country influence and the in-person restriction are documented above. Remaining uncertainty concerns their unresolved causes or broader methodological implications, rather than whether those analyses have been performed.
