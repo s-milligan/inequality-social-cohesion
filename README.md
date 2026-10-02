@@ -69,14 +69,18 @@ These figures are descriptive and should not be interpreted as causal estimates 
 
 ## Methodological documentation
 
-Companion Quarto notebooks in `docs/methods/` explain consequential analysis steps, assumptions, diagnostics and interpretation. Executable analysis scripts remain in `04_code/`.
+Companion Quarto notebooks in `docs/methods/` explain analysis steps, assumptions, diagnostics and interpretation. Executable analysis scripts remain in `04_code/`.
 
-The latest notebooks cover:
+The methods notebooks cover:
 
-- [Party hate-speech moderation](docs/methods/06_party_hate_moderation.qmd): sample construction, variable decomposition, model specification and conditional slopes.
-- [Sensitivity checks](docs/methods/07_party_hate_sensitivity_checks.qmd): country influence, contextual exclusions, exposure timing, interview mode and Gini variation.
+- [Cohesion dimensions](docs/methods/03_cohesion_dimensions.qmd): conceptual distinctions and descriptive assessment of candidate trust, social connectedness and participation measures.
+- [Inequality exposure construction](docs/methods/03_construct_inequality_exposure.qmd): inequality-source coverage, interview-year matching and construction of country-round exposures.
+- [Party hate-speech moderation](docs/methods/06_party_hate_moderation.qmd): sample construction, within–between decomposition, interaction specification and conditional slopes.
+- [Party hate-speech sensitivity checks](docs/methods/07_party_hate_sensitivity_checks.qmd): country influence, contextual exclusions, exposure timing, interview mode and available Gini variation.
+- [Extended ESS analysis dataset](docs/methods/08_build_ess_extended_analysis.qmd): incorporation of Rounds 10–11, variable harmonisation, interview-mode handling and contextual-data integration.
+- [ESS political exposure preparation](docs/methods/09_construct_ess_political_exposure.qmd): preparation of respondent voting and party-closeness information for subsequent party-affiliation analyses.
 
-These two notebooks read saved analysis outputs rather than refitting models during rendering. They require the corresponding local outputs to be generated first. Earlier notebooks document data preparation and other methodological steps.
+The party hate-speech notebooks read saved analysis outputs rather than refitting models during rendering. Rendering requires the relevant local inputs or outputs, as documented in each notebook.
 
 ## Repository structure
 
