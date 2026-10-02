@@ -5,9 +5,8 @@
 
 This document records the current design, implementation status and
 outstanding decisions for the generalised-trust paper within the wider
-Inequality and cohesion project. It consolidates the work completed
-through 2 October 2026. Detailed implementation explanations and results
-are provided in the accompanying methods notebooks.
+Inequality and cohesion project. Detailed implementation explanations
+and results are provided in the accompanying methods notebooks.
 
 The first party hate-speech moderation models have been estimated,
 together with country-influence, contextual-exclusion, exposure-timing,
@@ -15,17 +14,14 @@ interview-mode and Gini-variation checks. Survey weighting and exposure
 measurement uncertainty remain unresolved. The current findings are
 provisional.
 
-This is a working research-design document, not a preregistration. The
-initial party hate-speech specification was recorded on 1 October after
-the measurement audit and before inspecting discourse-interaction
-results. Results reviewed on 2 October are distinguished below from
-those earlier design choices.
+This is a working research-design document rather than a
+preregistration.
 
 # Scope and research questions
 
-The paper focuses on generalised trust, following the decision of 22
-September 2026. Social cohesion provides the broader motivation; the
-paper does not claim to measure cohesion in its entirety.
+The paper focuses on generalised trust. Social cohesion provides the
+broader motivation; the paper does not claim to measure cohesion in its
+entirety.
 
 The core research question is:
 
@@ -42,11 +38,6 @@ The current empirical operationalisation addresses one specific
 dimension of the moderation question: political parties’ use of
 group-directed hate speech. It is not a comprehensive measure of
 divisive discourse.
-
-The intended journal is *European Societies*. The literature framing
-should engage with Delhey and Newton (2003), Damhuis and Westheuser
-(2024), and Hastings (2018). Claims about the novelty of the
-political-discourse contribution require a fuller literature assessment.
 
 # Conceptual scope and hypotheses
 
@@ -81,14 +72,6 @@ Political discourse may shape interpretations of economic disparities,
 social relations and group conflict. This motivates H2 but does not
 establish the mechanism empirically. The party hate-speech analysis
 tests a specific operationalisation of H2.
-
-H2 replaces H3 in the earlier two-outcome design. The
-behavioural-cohesion hypotheses are deferred. Older repository labels
-should be checked when preparing the manuscript and consolidating
-documentation.
-
-These hypotheses are retained as originally formulated; they are not
-rewritten to match the observed estimates.
 
 # Data and measures
 
@@ -181,8 +164,6 @@ explanations or mechanisms.
 
 The analysis uses repeated cross-sectional ESS data. R1–R9 provides the
 baseline comparator, while the extended dataset incorporates R10–R11.
-The original `ess_analysis.rds` baseline file is preserved.
-
 The extension script, `08_build_ess_extended_analysis.R`, imports
 `ess10_f2f.dta` and `ess11_f2f.dta`. It retains all respondents from
 those inputs and preserves interview-mode information rather than
@@ -283,11 +264,6 @@ individual complete-case exclusions. The macro-model decompositions use
 country-rounds with complete Gini, GDP and unemployment data. This
 implementation should remain distinguished from the newer moderation
 workflow.
-
-Any earlier post-R9 interaction analysis is a separate analysis and
-should be documented from its own script. Differences between the
-separately estimated R1–R9 and R1–R11 coefficients are not themselves
-formal period-interaction tests.
 
 ## Current moderation samples
 
@@ -425,7 +401,7 @@ The audit identifies missing values within those rows. Estonia R5 has
 the known timing problem; upstream causes of the remaining missing
 values still require investigation.
 
-# Measurement audit completed on 1 October 2026
+# Measurement audits
 
 The three candidate V-Dem indicators have complete annual coverage for
 the 39 ESS countries over 2000–2025. Both timing specifications were
@@ -451,7 +427,7 @@ were recorded before inspecting the discourse-interaction results.
 Country influence has subsequently been assessed; indicator uncertainty
 remains outstanding.
 
-# Results reviewed on 2 October 2026
+# Results reviewed
 
 ## Initial moderation models
 
@@ -617,11 +593,6 @@ methodological decision.
 | Trust/fairness/helpfulness composite | Outstanding conceptual and measurement checks |
 | Alternative discourse indicators | To be scoped as distinct constructs |
 
-Completion of one check does not resolve every associated design
-question. For example, the in-person restriction addresses one mode
-concern but does not settle all comparability issues between the two
-analytical periods.
-
 # Deferred extensions
 
 ## Respondent party affiliation and V-Party
@@ -737,10 +708,3 @@ generated outputs remain local. Selected figures are copied into
   improve timing weights elsewhere.
 - Which remaining alternative measures and specifications warrant
   inclusion in the main paper.
-
-Country-level hate speech has been constructed and modelled; those tasks
-are no longer open. The current treatment of Estonia R5, contextual
-exclusions, hate-speech timing sensitivity, country influence and the
-in-person restriction are documented above. Remaining uncertainty
-concerns their unresolved causes or broader methodological implications,
-rather than whether those analyses have been performed.
