@@ -1,267 +1,501 @@
 # Data
 
-This directory supports the local data workflow for the project on economic inequality, political discourse and generalised trust.
+This directory contains the local data workflow for the Inequality and cohesion project.
 
-The public repository documents data sources, construction procedures and analytical inputs. It does not redistribute the underlying survey or contextual datasets. Raw data, intermediate files and processed respondent datasets remain local.
+The public repository does not redistribute the underlying survey or contextual datasets. Instead, it documents the sources, versions, data-handling rules and scripts required to reproduce the analytical workflow from locally available source files.
 
-## Local structure
-
-The following directories contain the principal documented raw inputs:
+## Folder structure
 
 ```text
 03_data/
-    raw/
-        ess/
-            post9/
-        inequality/
-            oecd/
-            swiid/
-        vdem/
-    interim/
-    processed/
-    metadata_codebooks/
+├── raw/
+│   ├── ess/
+│   ├── inequality/
+│   │   ├── oecd/
+│   │   └── swiid/
+│   └── vdem/
+├── interim/
+├── processed/
+└── metadata_codebooks/
 ```
-
-Additional source files should retain the locations expected by their import scripts. Generated model results, diagnostics and figures are stored separately under `05_output/`.
 
 ## Repository policy
 
-- `raw/`, `interim/` and `processed/` are local data directories and are not tracked by default.
-- Metadata and documentation may be tracked where useful and redistribution is permitted.
-- Restricted or identifying data must not be committed.
-- Selected project-generated figures are published under `docs/figures/`.
-- Fitted models, computational checkpoints and routine generated outputs remain local.
+The full data structure is used locally, but the underlying datasets are not tracked in Git.
 
-Access to the public repository alone does not provide every input required to reproduce the analysis.
+By default:
 
-## Data sources
+- `raw/` is local only;
+- `interim/` is local only;
+- `processed/` is local only;
+- metadata and documentation may be tracked where useful;
+- restricted, licensed, copyrighted, sensitive or personally identifying data must never be committed;
+- generated data products are included in the public repository only where they have a clear reproducibility or dissemination purpose.
 
-### European Social Survey
+The public repository contains the code needed to recreate intermediate and processed files from locally available source data.
 
-**Source:** European Social Survey (ESS)  
-**Coverage used:** Rounds 1–11, with Rounds 1–9 retained as the baseline comparison  
-**Local input format:** Stata `.dta` files  
-**Local source directory:** `03_data/raw/ess/`
+# Current data sources
 
-The ESS supplies respondent identifiers, generalised trust, individual covariates, interview timing, mode information and survey weights. Additional extracts support party-affiliation preparation and descriptive assessment of alternative outcomes.
+## European Social Survey
 
-The primary outcome is `ppltrst`, measured from 0 to 10. Related measures include `pplfair` and `pplhlp`; their potential use in a composite remains subject to conceptual and measurement checks. Supplementary variables are not necessarily harmonised or available in every processed file.
+**Source:** European Social Survey  
+**Rounds:** 1–11  
+**Baseline analytical period:** Rounds 1–9  
+**Extended analytical period:** Rounds 1–11  
+**Format used locally:** Stata `.dta` extracts  
+**Local location:** `03_data/raw/ess/`
 
-The later-round inputs used by the extension script are:
+The ESS provides the respondent-level survey data used in the analysis.
+
+The Rounds 1–9 baseline is retained as a separate analytical dataset. Rounds 10 and 11 are harmonised and appended in a separate extended workflow so that the original baseline remains reproducible.
+
+The ESS data contain variables required for:
+
+- respondent and survey identification;
+- country and ESS round;
+- interview timing;
+- interview mode where available;
+- generalised social trust;
+- fairness and helpfulness;
+- age and gender;
+- education;
+- labour-force status;
+- household economic position;
+- migration and background indicators;
+- survey weights;
+- political variables used in later extensions.
+
+The primary outcome is:
+
+- `ppltrst`: generalised social trust, measured on a 0–10 scale.
+
+Related items retained for secondary or robustness analyses include:
+
+- `pplfair`;
+- `pplhlp`.
+
+ESS fieldwork frequently spans more than one calendar year. Actual interview-year information is therefore used to construct country-round contextual exposures rather than assigning each ESS round a single nominal year.
+
+The baseline Rounds 1–9 workflow uses the explicit local extract:
 
 ```text
-03_data/raw/ess/post9/ess10_f2f.dta
-03_data/raw/ess/post9/ess11_f2f.dta
+ESS1e06_7-ESS2e03_6-ESS3e03_7-ESS4e04_6-
+ESS5e03_6-ESS6e02_7-ESS7e02_3-ESS8e02_3-
+ESS9e03_3-subset.dta
 ```
 
-Despite the filenames, these imported inputs include video interviews as well as in-person interviews. The preparation workflow preserves mode information. The main models retain eligible respondents across imported modes; an in-person sensitivity analysis has also been completed.
+This explicit filename is used so that the baseline scripts do not accidentally import separate Rounds 10 or 11 `.dta` files stored in the same local directory.
 
-For Rounds 1–9, the extended dataset assigns in-person mode based on the baseline survey-design assumption. This is distinct from verifying mode individually for every respondent.
+Raw ESS files are not redistributed through this repository.
 
-The extended dataset retains `analysis_weight`, but the current models are unweighted. For later rounds, the preparation script uses a positive, non-missing `anweight` where available, otherwise a positive, non-missing product of `pspwght` and `pweight`. Separate weight components may need to be recovered from source files for subsequent weighting work.
-
-Exact ESS file editions and download dates should accompany the local source inventory; round numbers alone do not fully identify a data release.
-
-### ESS political and alternative-outcome supplements
-
-Political variables covering Rounds 1–11 have been prepared to distinguish reported voting from party closeness and to support subsequent party linkage. These records have not yet been used in the substantive moderation models.
-
-A supplementary extract, `ess_rounds1-11_cohesion_migration_variables.dta`, supports preparation and assessment of social connectedness, institutional trust and migration-related variables.
-
-These supplements belong to the broader project. The current party hate-speech models use a national contextual indicator and do not require respondent-level party matching.
-
-### Standardized World Income Inequality Database
+## Standardized World Income Inequality Database
 
 **Source:** Standardized World Income Inequality Database (SWIID)  
-**Version recorded for this analysis:** 9.92  
-**Release recorded:** April 2026  
-**Primary measure:** Disposable-income Gini (`gini_disp`)  
-**Local source directory:** `03_data/raw/inequality/swiid/`
+**Version:** 9.92  
+**Release:** April 2026  
+**Primary variable:** disposable-income Gini (`gini_disp`)  
+**Local location:** `03_data/raw/inequality/swiid/`
 
-SWIID is the primary inequality source. The initial Rounds 1–9 assessment found one-year-lagged coverage for all 374 country × interview-year cells with known interview year. This historical coverage finding does not imply complete coverage of the extended Rounds 1–11 sample.
+SWIID is the primary inequality source for the current analysis.
 
-The summary series is used to construct the contextual point estimates in the current models. Some extended country-rounds lack the required Gini exposure, as documented below.
+It was selected because the one-year-lagged disposable-income Gini provides complete coverage of all usable ESS country × interview-year cells in the original Rounds 1–9 coverage assessment.
 
-The 100 SWIID imputations have been loaded in earlier project work. Construction, fitting and pooling across those imputations remain outstanding; current models do not propagate SWIID measurement uncertainty.
+The primary local R-format file is:
 
-### OECD Income Distribution Database
+```text
+swiid9_92.rda
+```
+
+This file contains both:
+
+- `swiid_summary`, used for coverage checks and the original summary-series country-round exposure construction;
+- `swiid`, containing 100 imputed or simulated inequality datasets used to propagate SWIID measurement uncertainty.
+
+The summary-series estimates are used in the currently reported main models.
+
+The uncertainty input has been audited. The R-format file contains the expected 100 imputations, and the imputation data and `swiid_summary` contain the same 6,628 country-years.
+
+The `gini_disp` values in the imputation objects are converted to conventional Gini-point units by dividing by 100.
+
+A dedicated uncertainty workflow reconstructs the lagged country-round inequality exposure separately within each SWIID imputation and then recalculates the within-country and between-country Gini components before fitting the models.
+
+This workflow has been validated on the first three imputations for Rounds 1–9. The full 100-imputation analysis remains outstanding.
+
+## OECD Income Distribution Database
 
 **Source:** OECD Income Distribution Database (IDD)  
-**Measure:** Disposable-income Gini  
-**Local source directory:** `03_data/raw/inequality/oecd/`
+**Primary measure:** disposable-income Gini  
+**Local location:** `03_data/raw/inequality/oecd/`
 
-OECD IDD is retained for a planned alternative-source inequality analysis.
+OECD IDD is retained as the principal alternative inequality source.
 
-In the original Rounds 1–9 coverage assessment, exact one-year-lagged OECD values were available for 274 of 374 country × interview-year cells, representing approximately 71% of respondents. Coverage is geographically uneven.
+For the original ESS Rounds 1–9 coverage assessment, exact one-year-lagged OECD Gini coverage was substantially less complete than SWIID coverage and was geographically uneven.
 
-Coverage assessment and exposure preparation do not mean the OECD-based model sensitivity analysis has been completed.
+The OECD series is therefore not used as the primary exposure, but it provides an important robustness comparison based more closely on directly observed national inequality statistics.
 
-### Macroeconomic controls
+Any SWIID–OECD comparison must distinguish differences in inequality measurement from differences in the country-round sample generated by incomplete OECD coverage.
 
-The models use lagged log GDP per capita at purchasing power parity and lagged unemployment, represented by:
+## V-Dem
 
-- `log_gdp_pc_ppp_lag1`
-- `unemployment_lag1`
-
-The combined modelling input is:
-
-```text
-03_data/interim/ess_country_round_macro_r1_r11.csv
-```
-
-The exact providers, source-series identifiers, original units and retrieval dates are not specified in this README and remain to be documented from the relevant import and construction steps.
-
-### V-Dem political-discourse indicators
-
-**Source:** V-Dem Country-Year Full+Others dataset  
+**Source:** Varieties of Democracy  
+**Dataset:** Country-Year Full+Others  
 **Version:** 16  
-**Local source file:**
+**Local location:** `03_data/raw/vdem/`
+
+The current local file is:
 
 ```text
-03_data/raw/vdem/V-Dem-CY-Full+Others-v16.csv
+V-Dem-CY-Full+Others-v16.csv
 ```
 
-The discourse audit examined:
+V-Dem provides the country-year political-context measures used in the political-discourse extension.
 
-| Indicator | Role in the project |
-|---|---|
-| `v2smpolhate` | Main indicator: political parties’ group-directed hate speech |
-| `v2dlcountr` | Alternative contextual indicator concerning respect for counterarguments |
-| `v2cacamps` | Distinct contextual indicator of societal political polarisation |
+The principal current indicator is:
 
-All three indicators have annual coverage for the 39 ESS countries examined over 2000–2025.
+- `v2smpolhate`: major political parties' use of rhetoric intended to insult, offend or intimidate social groups.
 
-The unsuffixed interval-scale `v2smpolhate` estimate is multiplied by −1 so that higher values indicate more hate speech. The constructed variables `party_hate_lag1` and `party_hate_contemp` are already reversed and must not be reversed again during modelling.
+The interval-scale estimate is multiplied by −1 in the constructed exposure so that higher values indicate more party hate speech.
 
-Negative values are valid scale locations. Zero does not indicate an absence of hate speech. The current models use point estimates and do not propagate V-Dem measurement uncertainty.
+Additional indicators retained for conceptual comparison include:
 
-V-Party is a separate planned extension and is not an input to the current national hate-speech models.
+- `v2dlcountr`;
+- `v2cacamps`.
 
-## Contextual matching
+Both contemporaneous and one-year-lagged country-round discourse exposures are constructed using the same ESS interview-year weighting principle used for inequality.
 
-The contextual survey unit is the country-round. Annual exposures are matched to actual interview timing rather than a single nominal ESS round year.
+V-Dem uncertainty is not yet propagated through the substantive models.
 
-For example, if 80% of dated interviews occurred in 2016 and 20% in 2017, the lagged inequality exposure is:
+# Contextual matching
+
+The contextual survey unit is the **country-round**.
+
+Annual contextual values are matched to actual ESS interview timing.
+
+For country-rounds whose fieldwork spans more than one calendar year, annual contextual values are aggregated using the proportion of respondents with known interview years in each year.
+
+For example, if:
+
+```text
+80% of dated respondents were interviewed in 2016
+20% of dated respondents were interviewed in 2017
+```
+
+then the one-year-lagged inequality exposure is:
 
 ```text
 0.80 × Gini(2015) + 0.20 × Gini(2016)
 ```
 
-The principal timing inputs are:
+The same timing logic is used for V-Dem country-year exposures.
 
-- `ess_inequality_coverage.csv` for the baseline interview-year counts;
-- `ess_post9_country_round_year_coverage.csv` for later rounds.
+The primary inequality specification uses a one-year lag.
 
-Historical timing information should be obtained from these coverage tables rather than assuming it is fully populated in the extended respondent dataset.
+The primary party hate-speech specification also uses a one-year lag. A contemporaneous hate-speech specification has been constructed and analysed as a sensitivity check.
 
-Interview-year shares are calculated among respondents with known dates. Undated respondents remain eligible for analysis and receive their country-round exposure where one can be constructed. This assumes that the dated interviews adequately represent the fieldwork timing of the whole country-round.
+Contemporaneous inequality remains a planned robustness specification.
 
-The discourse construction requires an observed value for each annual component. Missing annual components are not interpolated or silently omitted by renormalising the available values. Country-rounds without usable timing retain missing exposures.
+## Missing annual components
 
-The main models use lagged Gini, macro controls and hate speech. Contemporaneous hate speech has been examined on the same respondent samples. Contemporaneous inequality remains a separate outstanding model sensitivity check.
+A country-round contextual exposure is constructed only when all required annual components are available.
 
-## Principal intermediate files
+The workflow does not:
 
-The following are selected inputs and diagnostic products, rather than an exhaustive directory inventory.
+- interpolate missing annual observations;
+- extrapolate beyond available source-series endpoints;
+- renormalise interview-year weights over the subset of available contextual years.
 
-| File under `interim/` | Purpose |
-|---|---|
-| `ess_country_round_coverage.csv` | Baseline country-round coverage |
-| `ess_country_round_year_coverage.csv` | Baseline interview-year coverage |
-| `ess_inequality_coverage.csv` | Baseline interview-year counts and inequality availability |
-| `ess_country_round_inequality.csv` | Constructed baseline inequality exposures |
-| `ess_post9_country_round_year_coverage.csv` | Later-round interview-year counts |
-| `ess_post9_context.csv` | Later-round contextual inputs |
-| `ess_country_round_macro_r1_r11.csv` | Combined GDP and unemployment input |
-| `ess_country_round_discourse_r1_r11.csv` | Constructed discourse exposures and timing diagnostics |
+This prevents a country-round spanning several interview years from being represented by only the subset for which contextual data happen to exist.
 
-The discourse file includes contemporaneous and lagged values for the audited indicators, including the reversed party hate-speech measures. Exposures were constructed for 279 of 280 input country-rounds; Estonia R5 lacks usable interview-year information.
+## Incomplete interview-year information
 
-Intermediate files are generated by scripts in both `04_code/01_import-clean/` and `04_code/02_descriptives/`. In particular, the discourse audit script constructs an analytical input as well as producing diagnostics.
+Interview-year shares are calculated among respondents with known interview years.
 
-## Processed respondent data
+Respondents without an interview year remain in the respondent-level data and may receive their country-round contextual exposure where sufficient timing information exists for that country-round.
 
-| File under `processed/` | Purpose |
-|---|---|
-| `ess_analysis.rds` | Preserved Rounds 1–9 baseline dataset |
-| `ess_analysis_r1_r11.rds` | Extended Rounds 1–11 respondent dataset |
+This assumes that the dated interviews adequately represent the timing of the whole country-round.
 
-The baseline dataset is generated by `04_code/01_import-clean/04_clean_ess_analysis.R`. The extended dataset is generated by `04_code/01_import-clean/08_build_ess_extended_analysis.R`.
+Several country-rounds have partial interview-year missingness. These remain a timing sensitivity issue where missingness is substantial.
 
-The extended dataset contains cleaned respondent variables, interview-mode information and country-round inequality exposure. The moderation scripts read the macro and discourse files separately and join them by `cntry` and `essround`; those contextual variables should not be assumed to be permanently merged into the processed respondent file.
+Estonia R5 is different: no usable interview-year information is available in the relevant raw ESS timing variables for its 1,793 respondents. It therefore remains in the underlying ESS respondent dataset but does not receive a constructed contextual exposure.
 
-Model-specific complete-case restrictions are applied during modelling. The processed dataset therefore contains more respondents than the fitted analysis samples.
+# Contextual-data exclusions
 
-## Preparation and analysis dependencies
+The contextual-data audit reproduces the saved analytical samples exactly.
 
-The workflow has several branches rather than one sequence determined solely by filename numbering.
+For the Rounds 1–9 macro-complete sample, two country-rounds are excluded:
 
-1. Prepare baseline ESS coverage and interview timing, assess inequality availability, construct inequality exposures and clean the baseline respondent data.
-2. Prepare the later-round inequality and macro context required by the ESS extension, then construct `ess_analysis_r1_r11.rds` and the combined macro input.
-3. Use the baseline and later-round timing tables with V-Dem to construct the combined discourse input.
-4. Join respondent, macro and discourse inputs in the moderation script and apply its common-sample restrictions.
-5. Run the diagnostic and sensitivity scripts using the saved models, contextual samples and outputs.
-6. Render the methods notebooks after their required outputs exist.
-
-Documented entry points include:
-
-| Script | Main purpose |
-|---|---|
-| `04_code/01_import-clean/01_ess_coverage.R` | Baseline survey coverage |
-| `04_code/01_import-clean/02_inequality_coverage.R` | Inequality-source coverage |
-| `04_code/01_import-clean/03_construct_inequality_exposure.R` | Baseline inequality exposure |
-| `04_code/01_import-clean/04_clean_ess_analysis.R` | Baseline respondent preparation |
-| `04_code/01_import-clean/08_build_ess_extended_analysis.R` | Rounds 1–11 respondent extension |
-| `04_code/01_import-clean/09_construct_ess_political_exposure.R` | Political-variable preparation |
-| `04_code/01_import-clean/10_add_cohesion_migration_variables.R` | Alternative-outcome and migration-variable preparation |
-| `04_code/02_descriptives/04_discourse_indicator_audit.R` | V-Dem audit and country-round discourse construction |
-| `04_code/03_models/06_party_hate_moderation.R` | Joining analytical inputs and estimating moderation models |
-
-This list identifies principal entry points, not a complete executable build manifest. Consult each script’s input requirements and the accompanying methods documentation for additional contextual-data preparation dependencies.
-
-## Known data limitations
-
-### Contextual exclusions in the current moderation samples
-
-| Country | Round | Respondents before individual exclusions | Missing contextual variables |
+| Country | Round | Respondents | Reason |
 |---|---:|---:|---|
-| Estonia | 5 | 1,793 | Gini, hate speech, GDP, unemployment |
+| Estonia | 5 | 1,793 | No usable ESS interview-year information |
+| Kosovo | 6 | 1,295 | Required unemployment value unavailable |
+
+These exclusions account for 3,088 respondents.
+
+For the extended Rounds 1–11 contextual sample, seven country-rounds are excluded:
+
+| Country | Round | Respondents | Main limitation |
+|---|---:|---:|---|
+| Estonia | 5 | 1,793 | ESS interview timing |
 | Kosovo | 6 | 1,295 | Unemployment |
-| Israel | 11 | 906 | Gini |
-| Iceland | 10 | 903 | Gini |
-| Iceland | 11 | 842 | Gini |
-| Montenegro | 11 | 1,609 | Gini |
-| Ukraine | 11 | 2,661 | Gini, unemployment |
+| Israel | 11 | 906 | SWIID series endpoint |
+| Iceland | 10 | 903 | SWIID series endpoint |
+| Iceland | 11 | 842 | SWIID series endpoint |
+| Montenegro | 11 | 1,609 | SWIID series endpoint |
+| Ukraine | 11 | 2,661 | SWIID and unemployment series endpoints |
 
-All these country-rounds have matching rows in the contextual tables. The missing-variable audit reproduces the fitted sample counts and country-round membership.
+These exclusions account for 10,009 respondents.
 
-Estonia R5 remains in the underlying respondent data but is excluded from the current models because no usable interview-year information is available for contextual construction. Recovering timing information remains unresolved.
+The exclusions reflect identifiable source-data or timing limitations rather than unexplained row loss during data processing.
 
-The upstream causes of the other missing values remain to be investigated. Missingness in a constructed exposure should not automatically be interpreted as absence of the underlying source series.
+# Survey weights
 
-After contextual and individual exclusions, the moderation samples contain:
+Relevant ESS survey-weight variables are retained in the processed data.
 
-| Period | Respondents | Countries | Country-rounds |
-|---|---:|---:|---:|
-| R1–R9 | 419,618 | 37 | 226 |
-| R1–R11 | 498,461 | 38 | 273 |
+The harmonised `analysis_weight` uses the supplied `anweight` where available and otherwise reconstructs the equivalent weight from:
 
-### Partially missing interview years
+```text
+pspwght × pweight
+```
 
-Incomplete interview-year information affects 24 country-rounds, including Estonia R5. Substantial partial gaps occur in Spain, Iceland, Latvia and Croatia in R9, and Czechia in R1.
+The weight-construction audit found:
 
-Fieldwork documentation should be checked to assess whether undated interviews could alter the annual exposure weights. These limitations concern both inequality and discourse matching.
+- valid `analysis_weight` values for all 518,597 respondents in the Rounds 1–11 processed dataset;
+- exact agreement between the processed `analysis_weight` and the expected value from the raw ESS variables;
+- only negligible floating-point differences between supplied `anweight` and reconstructed `pspwght × pweight`.
 
-### Weighting and exposure uncertainty
+The components have different substantive implications:
 
-Current models do not use ESS survey weights or propagate SWIID and V-Dem measurement uncertainty. These are outstanding methodological tasks, not properties resolved by the existing sample and coverage checks.
+- `pspwght` primarily adjusts respondent composition within national samples;
+- `pweight` changes the relative influence of countries according to population size.
 
-## Documentation and reproducibility
+The current substantive REWB models remain unweighted.
 
-Scripts use project-relative paths through the `here` package. Reproduction requires the relevant source data, expected local file locations and prerequisite outputs.
+The remaining weighting issue is therefore not data construction but the analytical estimand and the appropriate implementation of multilevel survey weighting.
 
-The [research design](../02_research-design/research_design.md) records the current specifications, results and outstanding decisions. Explanatory notebooks are listed in the [main README](../README.md#methodological-documentation).
+# Interim data
 
-Raw inputs should remain unchanged. Cleaning, matching and transformations are scripted. Source versions, file editions, retrieval dates and access conditions should be recorded alongside the local source inventory.
+The `interim/` directory contains generated coverage, diagnostic and merge files.
 
-The current modelling and diagnostic scripts save session information with their outputs. A fully specified software environment and complete source-provenance inventory remain to be consolidated.
+Examples include:
+
+```text
+ess_country_round_year_coverage.csv
+ess_country_round_coverage.csv
+ess_inequality_coverage.csv
+ess_country_round_inequality.csv
+
+ess_post9_country_round_year_coverage.csv
+ess_post9_context.csv
+
+ess_country_round_macro.csv
+ess_country_round_macro_r1_r11.csv
+ess_country_round_context_r1_r11.csv
+
+ess_country_round_discourse_r1_r11.csv
+
+inequality_coverage_summary.csv
+inequality_coverage_by_country.csv
+
+ess_analysis_missingness.csv
+ess_country_round_trust.csv
+```
+
+These files are generated by scripts under `04_code/`.
+
+They are not tracked in Git because they can be recreated from the documented source data and code.
+
+# Processed data
+
+The `processed/` directory contains analysis-ready respondent-level datasets generated from the raw and interim data.
+
+The Rounds 1–9 baseline file is:
+
+```text
+ess_analysis.rds
+```
+
+It contains cleaned ESS respondent-level variables merged with the baseline country-round inequality exposure.
+
+It is generated by:
+
+```text
+04_code/01_import-clean/04_clean_ess_analysis.R
+```
+
+The extended Rounds 1–11 file is:
+
+```text
+ess_analysis_r1_r11.rds
+```
+
+It preserves the Rounds 1–9 baseline observations while appending harmonised Rounds 10 and 11 respondents and retaining interview-mode information.
+
+It is generated by:
+
+```text
+04_code/01_import-clean/08_build_ess_extended_analysis.R
+```
+
+The existence of the extended file does not replace the Rounds 1–9 baseline. Both are retained because the analysis explicitly compares the original pre-mode-change period with the extended ESS period.
+
+Processed data remain local and are not redistributed through the public repository.
+
+# Data-preparation workflow
+
+The core inequality and ESS workflow is:
+
+```text
+ESS R1–R9 raw extract
+    ↓
+country × round × interview-year coverage
+    ↓
+SWIID and OECD coverage
+    ↓
+country-round inequality exposure construction
+    ↓
+ESS variable cleaning and recoding
+    ↓
+R1–R9 analysis dataset
+```
+
+The baseline scripts are:
+
+```text
+04_code/01_import-clean/
+├── 01_ess_coverage.R
+├── 02_inequality_coverage.R
+├── 03_construct_inequality_exposure.R
+└── 04_clean_ess_analysis.R
+```
+
+The extended workflow adds Rounds 10 and 11:
+
+```text
+ESS R10/R11 raw extracts
+    ↓
+post-R9 interview timing
+    ↓
+post-R9 inequality and macro context
+    ↓
+harmonisation with R1–R9 baseline
+    ↓
+R1–R11 analysis dataset
+```
+
+Relevant scripts include:
+
+```text
+04_code/01_import-clean/
+├── 07_construct_post9_context.R
+└── 08_build_ess_extended_analysis.R
+```
+
+The political-context workflow uses the extended ESS timing structure to construct country-round V-Dem exposures:
+
+```text
+V-Dem country-year data
+    +
+ESS interview-year timing
+    ↓
+contemporaneous and lagged country-round discourse exposures
+    ↓
+R1–R9 and R1–R11 moderation-model context
+```
+
+The principal construction and audit script is:
+
+```text
+04_code/02_descriptives/04_discourse_indicator_audit.R
+```
+
+Additional audit scripts document consequential data decisions:
+
+```text
+04_code/02_descriptives/
+├── 06_party_hate_sample_audit.R
+├── 07_gini_variation_audit.R
+├── 08_context_source_audit.R
+├── 09_weight_audit.R
+└── 10_swiid_uncertainty_audit.R
+```
+
+SWIID uncertainty is propagated in the modelling stage rather than by replacing the summary-series processed dataset:
+
+```text
+04_code/03_models/10_swiid_uncertainty.R
+```
+
+# Data handling principles
+
+1. Raw source data remain unchanged.
+2. All cleaning and transformations are scripted.
+3. Intermediate and processed data should be reproducible from the documented source files.
+4. Variable-construction decisions are documented in code and research-design files.
+5. Contextual timing is based on actual interview timing rather than nominal ESS round year wherever usable timing information exists.
+6. Country-round contextual values are not interpolated, extrapolated or renormalised over missing annual components unless a future sensitivity analysis explicitly introduces and documents such a rule.
+7. Rounds 1–9 remain reproducible as a distinct baseline rather than being overwritten by the Rounds 1–11 extension.
+8. Survey-weight variables are retained even when substantive models are unweighted.
+9. Raw, licensed or restricted data are not redistributed unless redistribution is explicitly permitted.
+10. Only data products with a clear reproducibility or dissemination purpose should be considered for inclusion in the public repository.
+
+# Known data limitations
+
+## Estonia, ESS Round 5
+
+Usable interview-year information is unavailable in the timing variables used for Estonia R5.
+
+The 1,793 respondents remain in the individual-level ESS data, but no timing-weighted country-round contextual exposure is assigned.
+
+The current analytical rule is therefore to exclude Estonia R5 from analyses requiring those contextual exposures rather than assigning an assumed nominal interview year.
+
+If reliable country-specific fieldwork information becomes available, this treatment can be revisited as a sensitivity analysis.
+
+## Contextual source endpoints
+
+Several late ESS country-rounds require lagged inequality or macroeconomic values beyond the available endpoints of the corresponding local source series.
+
+These include:
+
+- Israel R11;
+- Iceland R10;
+- Iceland R11;
+- Montenegro R11;
+- Ukraine R11.
+
+These country-rounds are not filled by extrapolation.
+
+## Kosovo R6
+
+Kosovo R6 has the required lagged SWIID inequality value but no finite unemployment observation in the local macroeconomic source used by the current workflow.
+
+It is therefore excluded from analyses requiring the complete macroeconomic adjustment set.
+
+## OECD coverage
+
+OECD inequality coverage is incomplete for a substantial number of ESS country-year observations and is geographically uneven.
+
+This is the main reason SWIID remains the primary inequality source.
+
+OECD IDD is retained as a robustness source rather than used to define the primary analytical sample.
+
+## Later-round survey mode
+
+Rounds 10 and 11 contain both in-person and video interviews in the imported data.
+
+Interview mode is retained explicitly in the extended dataset.
+
+A completed in-person-only sensitivity analysis retains all 38 countries and 273 country-rounds and produces substantively very similar estimates to the all-mode Rounds 1–11 analysis.
+
+This does not establish that survey mode is irrelevant in general; it documents the sensitivity of the current fitted models.
+
+# Reproducibility
+
+Scripts use project-relative paths via the `here` package.
+
+Authorised users must obtain the required source datasets independently and place them in the expected local directories before running the workflow.
+
+The numerical script prefixes indicate the approximate sequence within each code folder, but the project should not be interpreted as a single unconditional pipeline in which every numbered script must always be run from beginning to end. Some scripts construct alternative datasets, audits or later extensions.
+
+The Rounds 1–9 baseline and Rounds 1–11 extended workflow should remain separately reproducible.
+
+Software and package-version management will be documented more formally as the analysis stabilises.
