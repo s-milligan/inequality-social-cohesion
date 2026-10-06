@@ -51,19 +51,19 @@ The Rounds 1–9 baseline is retained as a separate analytical dataset. Rounds 1
 
 The ESS data contain variables required for:
 
-- respondent and survey identification;
-- country and ESS round;
-- interview timing;
-- interview mode where available;
-- generalised social trust;
-- fairness and helpfulness;
-- age and gender;
-- education;
-- labour-force status;
-- household economic position;
-- migration and background indicators;
-- survey weights;
-- political variables used in later extensions.
+- respondent and survey identification
+- country and ESS round
+- interview timing
+- interview mode where available
+- generalised social trust
+- fairness and helpfulness
+- age and gender
+- education
+- labour-force status
+- household economic position
+- migration and background indicators
+- survey weights
+- political variables used in later extensions
 
 The primary outcome is:
 
@@ -71,8 +71,8 @@ The primary outcome is:
 
 Related items retained for secondary or robustness analyses include:
 
-- `pplfair`;
-- `pplhlp`.
+- `pplfair`
+- `pplhlp`
 
 ESS fieldwork frequently spans more than one calendar year. Actual interview-year information is therefore used to construct country-round contextual exposures rather than assigning each ESS round a single nominal year.
 
@@ -182,9 +182,9 @@ For example, if:
 
 then the one-year-lagged inequality exposure is:
 
-```text
+$$
 0.80 × Gini(2015) + 0.20 × Gini(2016)
-```
+$$
 
 The same timing logic is used for V-Dem country-year exposures.
 
@@ -253,9 +253,9 @@ Relevant ESS survey-weight variables are retained in the processed data.
 
 The harmonised `analysis_weight` uses the supplied `anweight` where available and otherwise reconstructs the equivalent weight from:
 
-```text
+$$
 pspwght × pweight
-```
+$$
 
 The weight-construction audit found:
 

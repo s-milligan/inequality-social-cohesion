@@ -363,7 +363,7 @@ V-Dem measurement uncertainty remains a separate outstanding methodological issu
 
 # Completed and outstanding sensitivity work
 
-| Check | Status through 2026-05-10 |
+| Check | Status through 2026-06-10 |
 |---|---|
 | R1–R9 and R1–R11 moderation models | Completed |
 | Country deletion for M5 and M6 | Completed; 150 clean refits |
@@ -429,7 +429,7 @@ These extensions remain deferred while the main paper's weighting, uncertainty a
 | `04_code/02_descriptives/07_gini_variation_audit.R` | Within-country Gini variation diagnostic |
 | `04_code/02_descriptives/08_context_source_audit.R` | Source-level diagnosis of contextual-data exclusions |
 | `04_code/02_descriptives/09_weight_audit.R` | ESS weight construction, linkage and component audit |
-| `04_code/02_descriptives/10_swiid_uncertainty_audit.R` | SWIID imputation structure, scale and summary-series consistency checks |
+| `04_code/02_descriptives/10_swiid_uncertainty_audit.R` | SWIID imputation structure, scale and descriptive comparison with `swiid_summary` |
 
 ## Methods notebooks
 

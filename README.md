@@ -22,18 +22,20 @@ The analysis uses repeated cross-sectional European Social Survey (ESS) data, co
 
 Completed work includes:
 
-- construction of country-round inequality, macroeconomic and party hate-speech exposures;
-- estimation of baseline and party hate-speech moderation models;
-- country-influence analysis;
-- contextual-exclusion and sample-reproduction checks;
-- comparison of lagged and contemporaneous hate speech;
-- an in-person interview sensitivity analysis;
-- examination of available within-country Gini variation; and
-- explanatory methods notebooks.
+- construction of country-round inequality, macroeconomic and party hate-speech exposures
+- estimation of baseline and party hate-speech moderation models
+- country-influence analysi
+- contextual-exclusion and sample-reproduction checks
+- comparison of lagged and contemporaneous hate speech
+- an in-person interview sensitivity analysis
+- examination of available within-country Gini variation
+- explanatory methods notebooks
+- ESS weight-construction audit
+- SWIID uncertainty-input audit and initial workflow validation
 
 The current models estimate a weak conditional within-country inequality–trust association and provide no clear evidence of the proposed moderation. A positive within-country association between party hate speech and trust persists across the examined exposure timings and interview-mode restriction, with some sensitivity to country composition.
 
-These findings are provisional and observational. Survey weighting and propagation of exposure measurement uncertainty remain outstanding.
+These findings are provisional and observational. ESS weight construction and the SWIID uncertainty inputs and modelling workflow have been audited. The remaining sensitivity work includes selecting and implementing an appropriate survey-weighting strategy and completing the full propagation of SWIID measurement uncertainty through the models.
 
 ## Current empirical design
 
