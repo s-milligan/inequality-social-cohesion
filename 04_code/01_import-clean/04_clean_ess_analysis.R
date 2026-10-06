@@ -15,13 +15,16 @@ library(readr)
 
 # 1. Locate and import ESS extract ----------------------------------------
 
-ess_file <- list.files(
-  here("03_data", "raw", "ess"),
-  pattern = "\\.dta$",
-  full.names = TRUE
+ess_file <- here(
+  "03_data", "raw", "ess",
+  paste0(
+    "ESS1e06_7-ESS2e03_6-ESS3e03_7-ESS4e04_6-",
+    "ESS5e03_6-ESS6e02_7-ESS7e02_3-ESS8e02_3-",
+    "ESS9e03_3-subset.dta"
+  )
 )
 
-stopifnot(length(ess_file) == 1)
+stopifnot(file.exists(ess_file))
 
 ess_raw <- read_dta(ess_file)
 

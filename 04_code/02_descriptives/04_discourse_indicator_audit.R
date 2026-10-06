@@ -298,3 +298,510 @@ write_csv(
   timing_summary,
   file.path(output_dir, "ess_interview_year_coverage.csv")
 )
+
+
+# 6. Construct ESS country-round discourse exposures -----------
+
+timing_base <- read_csv(
+  here(
+    "03_data", "interim",
+    "ess_inequality_coverage.csv"
+  ),
+  show_col_types = FALSE
+) |>
+  select(
+    cntry, essround,
+    interview_year, n_respondents
+  )
+
+timing_post9 <- read_csv(
+  here(
+    "03_data", "interim",
+    "ess_post9_country_round_year_coverage.csv"
+  ),
+  show_col_types = FALSE
+)
+
+stopifnot(
+  all(timing_base$essround %in% 1:9),
+  all(timing_post9$essround %in% 10:11)
+)
+
+timing <- bind_rows(
+  timing_base,
+  timing_post9
+)
+
+# Check keys and counts before constructing shares.
+
+timing_duplicates <- timing |>
+  count(cntry, essround, interview_year) |>
+  filter(n > 1)
+
+if (nrow(timing_duplicates) > 0) {
+  print(timing_duplicates, n = Inf)
+  stop("Duplicate country-round-year timing rows.")
+}
+
+stopifnot(
+  all(!is.na(timing$cntry)),
+  all(!is.na(timing$essround)),
+  all(is.finite(timing$n_respondents)),
+  all(timing$n_respondents > 0),
+  all(timing$n_respondents == floor(timing$n_respondents))
+)
+
+# Preserve the full country-round structure of the ESS dataset.
+
+ess_rounds <- ess |>
+  count(
+    cntry, essround,
+    name = "n_respondents_total"
+  )
+
+unexpected_rounds <- timing |>
+  distinct(cntry, essround) |>
+  anti_join(
+    ess_rounds,
+    by = c("cntry", "essround")
+  )
+
+if (nrow(unexpected_rounds) > 0) {
+  print(unexpected_rounds, n = Inf)
+  stop("Timing rows do not match the ESS country-rounds.")
+}
+
+# Shares use respondents with known interview years only.
+
+timing_known <- timing |>
+  filter(!is.na(interview_year)) |>
+  group_by(cntry, essround) |>
+  mutate(
+    interview_year_share =
+      n_respondents / sum(n_respondents)
+  ) |>
+  ungroup()
+
+stopifnot(
+  all(is.finite(timing_known$interview_year)),
+  all(
+    timing_known$interview_year ==
+      floor(timing_known$interview_year)
+  )
+)
+
+share_check <- timing_known |>
+  group_by(cntry, essround) |>
+  summarise(
+    share_sum = sum(interview_year_share),
+    .groups = "drop"
+  )
+
+stopifnot(
+  all(abs(share_check$share_sum - 1) < 1e-10)
+)
+
+timing_counts <- timing_known |>
+  group_by(cntry, essround) |>
+  summarise(
+    n_respondents_with_year = sum(n_respondents),
+    first_interview_year = min(interview_year),
+    last_interview_year = max(interview_year),
+    .groups = "drop"
+  )
+
+timing_diagnostics <- ess_rounds |>
+  left_join(
+    timing_counts,
+    by = c("cntry", "essround")
+  ) |>
+  mutate(
+    n_respondents_with_year =
+      coalesce(n_respondents_with_year, 0),
+    n_respondents_without_year =
+      n_respondents_total - n_respondents_with_year,
+    share_with_interview_year =
+      n_respondents_with_year / n_respondents_total
+  )
+
+if (any(timing_diagnostics$n_respondents_without_year < 0)) {
+  print(
+    timing_diagnostics |>
+      filter(n_respondents_without_year < 0),
+    n = Inf
+  )
+  stop("Timing counts exceed the ESS respondent counts.")
+}
+
+# 7. Match annual V-Dem values at lag 0 and lag 1 ---------------
+
+annual_discourse <- vdem_ess |>
+  select(
+    cntry, year,
+    all_of(indicators)
+  )
+
+timing_matches <- bind_rows(
+  timing_known |>
+    mutate(
+      specification = "contemp",
+      context_year = interview_year
+    ),
+  timing_known |>
+    mutate(
+      specification = "lag1",
+      context_year = interview_year - 1
+    )
+) |>
+  left_join(
+    annual_discourse,
+    by = c(
+      "cntry",
+      "context_year" = "year"
+    )
+  )
+
+# Retain missing annual matches for inspection.
+# Do not renormalise over available V-Dem years.
+
+annual_gaps <- timing_matches |>
+  filter(
+    if_any(
+      all_of(indicators),
+      ~ is.na(.x)
+    )
+  ) |>
+  select(
+    cntry, essround,
+    interview_year, context_year,
+    specification, interview_year_share,
+    all_of(indicators)
+  )
+
+exposures <- timing_matches |>
+  pivot_longer(
+    cols = all_of(indicators),
+    names_to = "indicator",
+    values_to = "value"
+  ) |>
+  group_by(
+    cntry, essround,
+    specification, indicator
+  ) |>
+  summarise(
+    exposure = if (all(is.finite(value))) {
+      weighted.mean(
+        value,
+        interview_year_share
+      )
+    } else {
+      NA_real_
+    },
+    .groups = "drop"
+  ) |>
+  pivot_wider(
+    id_cols = c(cntry, essround),
+    names_from = c(indicator, specification),
+    values_from = exposure,
+    names_glue = "{indicator}_{specification}"
+  )
+
+discourse_context <- timing_diagnostics |>
+  left_join(
+    exposures,
+    by = c("cntry", "essround")
+  ) |>
+  mutate(
+    # Reverse the interval-scale estimates by changing sign.
+    # Higher values now indicate more of the named construct.
+    
+    party_hate_contemp = -v2smpolhate_contemp,
+    party_hate_lag1 = -v2smpolhate_lag1,
+    
+    counterarg_disrespect_contemp = -v2dlcountr_contemp,
+    counterarg_disrespect_lag1 = -v2dlcountr_lag1
+  ) |>
+  arrange(cntry, essround)
+
+stopifnot(
+  nrow(discourse_context) == nrow(ess_rounds)
+)
+
+# 8. Diagnostics and outputs ----------------------------------
+
+exposure_columns <- c(
+  "v2smpolhate_contemp",
+  "v2smpolhate_lag1",
+  "v2dlcountr_contemp",
+  "v2dlcountr_lag1",
+  "v2cacamps_contemp",
+  "v2cacamps_lag1"
+)
+
+matched_coverage <- discourse_context |>
+  group_by(essround) |>
+  summarise(
+    n_country_rounds = n(),
+    across(
+      all_of(exposure_columns),
+      ~ sum(!is.na(.x)),
+      .names = "available_{.col}"
+    ),
+    .groups = "drop"
+  )
+
+cat("\nCountry-round exposure coverage:\n")
+print(matched_coverage, n = Inf, width = Inf)
+
+cat("\nCountry-rounds with incomplete interview-year information:\n")
+print(
+  timing_diagnostics |>
+    filter(n_respondents_without_year > 0),
+  n = Inf,
+  width = Inf
+)
+
+cat("\nMissing annual V-Dem matches:\n")
+print(annual_gaps, n = Inf, width = Inf)
+
+cat("\nCountry-rounds with any missing discourse exposure:\n")
+print(
+  discourse_context |>
+    filter(
+      if_any(
+        all_of(exposure_columns),
+        ~ is.na(.x)
+      )
+    ) |>
+    select(
+      cntry, essround,
+      n_respondents_total,
+      n_respondents_with_year,
+      all_of(exposure_columns)
+    ),
+  n = Inf,
+  width = Inf
+)
+
+write_csv(
+  discourse_context,
+  here(
+    "03_data", "interim",
+    "ess_country_round_discourse_r1_r11.csv"
+  )
+)
+
+write_csv(
+  matched_coverage,
+  file.path(
+    output_dir,
+    "discourse_country_round_coverage.csv"
+  )
+)
+
+write_csv(
+  timing_diagnostics,
+  file.path(
+    output_dir,
+    "discourse_timing_diagnostics.csv"
+  )
+)
+
+write_csv(
+  annual_gaps,
+  file.path(
+    output_dir,
+    "discourse_annual_matching_gaps.csv"
+  )
+)
+
+# 9. Variation at observed ESS country-rounds -------------------
+
+variation_data <- bind_rows(
+  discourse_context |>
+    filter(essround <= 9) |>
+    mutate(sample = "R1-R9"),
+  discourse_context |>
+    mutate(sample = "R1-R11")
+) |>
+  select(
+    sample, cntry, essround,
+    all_of(exposure_columns)
+  ) |>
+  pivot_longer(
+    cols = all_of(exposure_columns),
+    names_to = "indicator",
+    values_to = "value"
+  )
+
+ess_variation <- variation_data |>
+  group_by(sample, cntry, indicator) |>
+  summarise(
+    n_rounds_available = sum(!is.na(value)),
+    country_mean = if (all(is.na(value))) {
+      NA_real_
+    } else {
+      mean(value, na.rm = TRUE)
+    },
+    sd_across_rounds = sd(value, na.rm = TRUE),
+    observed_range = safe_max(value) - safe_min(value),
+    .groups = "drop"
+  )
+
+variation_summary <- ess_variation |>
+  group_by(sample, indicator) |>
+  summarise(
+    n_countries = n(),
+    countries_with_two_plus_rounds =
+      sum(n_rounds_available >= 2),
+    countries_with_no_variation = sum(
+      n_rounds_available >= 2 &
+        observed_range < 1e-10,
+      na.rm = TRUE
+    ),
+    median_within_country_sd =
+      median(sd_across_rounds, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+cat("\nVariation at observed ESS country-rounds:\n")
+print(variation_summary, n = Inf, width = Inf)
+
+cat("\nCountries with insufficient rounds or no variation:\n")
+print(
+  ess_variation |>
+    filter(
+      n_rounds_available < 2 |
+        observed_range < 1e-10
+    ) |>
+    select(
+      sample, cntry, indicator,
+      n_rounds_available, observed_range
+    ),
+  n = Inf,
+  width = Inf
+)
+
+write_csv(
+  ess_variation,
+  file.path(
+    output_dir,
+    "discourse_variation_by_country.csv"
+  )
+)
+
+write_csv(
+  variation_summary,
+  file.path(
+    output_dir,
+    "discourse_variation_summary.csv"
+  )
+)
+
+
+# 10. Party hate-speech trajectories ----------------------------
+
+library(ggplot2)
+
+plot_data <- discourse_context |>
+  filter(!is.na(first_interview_year)) |>
+  select(
+    cntry, essround,
+    party_hate_contemp,
+    party_hate_lag1
+  ) |>
+  pivot_longer(
+    cols = c(
+      party_hate_contemp,
+      party_hate_lag1
+    ),
+    names_to = "timing",
+    values_to = "score"
+  ) |>
+  mutate(
+    timing = factor(
+      timing,
+      levels = c(
+        "party_hate_contemp",
+        "party_hate_lag1"
+      ),
+      labels = c(
+        "Contemporaneous",
+        "One-year lag"
+      )
+    )
+  )
+
+# Only draw lines for series with at least two observations.
+
+line_data <- plot_data |>
+  filter(!is.na(score)) |>
+  group_by(cntry, timing) |>
+  filter(n() >= 2) |>
+  ungroup()
+
+p_hate <- ggplot(
+  plot_data,
+  aes(
+    x = essround,
+    y = score,
+    colour = timing,
+    group = timing
+  )
+) +
+  geom_line(
+    data = line_data,
+    linewidth = 0.5
+  ) +
+  geom_point(size = 1.2, na.rm = TRUE) +
+  facet_wrap(~ cntry, ncol = 6) +
+  scale_x_continuous(
+    breaks = c(1, 5, 9, 11)
+  ) +
+  scale_colour_manual(
+    values = c(
+      "Contemporaneous" = "#0072B2",
+      "One-year lag" = "#D55E00"
+    )
+  ) +
+  labs(
+    title = "Party hate speech at observed ESS country-rounds",
+    subtitle = "Reversed V-Dem interval estimates; higher values indicate more hate speech",
+    x = "ESS round",
+    y = "Party hate-speech score",
+    colour = NULL,
+    caption = paste(
+      "Common vertical scale across countries.",
+      "Lines connect available rounds;",
+      "gaps are not interpolated observations."
+    )
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+print(p_hate)
+
+figure_dir <- here(
+  "05_output", "figures", "discourse_audit"
+)
+
+dir.create(
+  figure_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+ggsave(
+  filename = file.path(
+    figure_dir,
+    "party_hate_ess_trajectories.png"
+  ),
+  plot = p_hate,
+  width = 14,
+  height = 14,
+  dpi = 200
+)
+

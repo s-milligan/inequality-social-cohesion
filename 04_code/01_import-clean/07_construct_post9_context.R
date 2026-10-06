@@ -951,6 +951,14 @@ print(
 
 # 11. Complete contextual-data coverage ----------------------------------
 
+post9_context <- post9_context |>
+  mutate(
+    complete_primary_context =
+      !is.na(gini_swiid_lag1) &
+      !is.na(log_gdp_pc_ppp_lag1) &
+      !is.na(unemployment_lag1)
+  )
+
 complete_context_summary <- post9_context |>
   summarise(
     n_country_rounds =

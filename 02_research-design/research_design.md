@@ -10,8 +10,11 @@ and results are provided in the accompanying methods notebooks.
 
 The first party hate-speech moderation models have been estimated,
 together with country-influence, contextual-exclusion, exposure-timing,
-interview-mode and Gini-variation checks. Survey weighting and exposure
-measurement uncertainty remain unresolved. The current findings are
+interview-mode, Gini-variation and survey-weight-construction checks.
+The contextual exclusions have been traced to their source-data or
+interview-timing causes. The SWIID uncertainty workflow has been audited
+and successfully validated on a small set of imputations, but the full
+100-imputation analysis remains outstanding. The current findings are
 provisional.
 
 This is a working research-design document rather than a
@@ -107,9 +110,15 @@ OECD IDD remains a planned alternative inequality source. Its comparison
 with SWIID should distinguish changes in measurement from changes in
 sample composition.
 
-The current models use SWIID summary estimates. The 100 imputations have
-been loaded in earlier project work, but exposure construction, model
-fitting and pooling across them remain outstanding.
+The currently reported substantive models use SWIID summary estimates.
+The SWIID 9.92 R-format file contains 100 imputations representing
+uncertainty in the disposable-income Gini estimates. Their structure,
+scale and country-year coverage have been audited successfully. A
+modelling workflow has been implemented that reconstructs the lagged
+country-round exposure and within-between decomposition separately
+within each imputation before fitting the REWB models. This workflow has
+been validated on the first three imputations for R1–R9; the full
+100-imputation analysis remains outstanding.
 
 ## Party hate speech
 
@@ -221,20 +230,21 @@ country-round’s constructed exposure where available. This assumes that
 the dated interviews adequately represent the fieldwork timing of the
 whole country-round.
 
-The discourse construction requires observed values for every annual
-component. Missing contextual years are not interpolated or silently
-removed by renormalising the available components.
+The contextual constructions require observed values for every annual
+component. Missing contextual years are not interpolated, extrapolated
+or silently removed by renormalising the available components.
 
-Incomplete interview-year information affects 24 country-rounds,
-including Estonia R5, which has no usable dates. Particularly
-substantial partial gaps occur in Spain, Iceland, Latvia and Croatia in
-R9, and Czechia in R1. Verification against fieldwork documentation
-remains outstanding.
+Incomplete interview-year information affects 24 country-rounds.
+Particularly substantial partial gaps occur in Spain, Iceland, Latvia
+and Croatia in R9, and Czechia in R1. Verification against fieldwork
+documentation remains an outstanding sensitivity issue where those gaps
+could materially affect timing weights.
 
-Estonia R5 remains in the underlying ESS data but is excluded from the
-current fitted samples because the required contextual exposures are
-missing. Its present treatment is established; recovering usable timing
-information remains unresolved.
+Estonia R5 is a distinct case. All 1,793 respondents lack usable
+interview-year information in the available raw ESS timing variables. It
+therefore remains in the underlying ESS data but is excluded from
+contextual analyses rather than being assigned an assumed nominal survey
+year.
 
 Lagging places the contextual measure before the interview year but does
 not establish causality. Contemporaneous hate speech has been examined;
@@ -397,9 +407,22 @@ account for the R1–R11 exclusions. The totals are 3,088 and 10,009
 respondents respectively, before individual complete-case restrictions.
 
 All excluded country-rounds have matching rows in the contextual tables.
-The audit identifies missing values within those rows. Estonia R5 has
-the known timing problem; upstream causes of the remaining missing
-values still require investigation.
+Their exclusion has now been traced to identifiable upstream causes
+rather than unexplained processing loss.
+
+Estonia R5 lacks usable interview-year information in the ESS timing
+variables. Israel R11 requires lagged SWIID values for 2022 and 2023
+because its interviews span 2023 and 2024; the required 2023 SWIID value
+is unavailable. Iceland R10 requires 2020 and 2021 lagged Ginis while
+the available country series ends in 2019, and Iceland R11 requires
+2023. Montenegro R11 likewise requires a 2023 lagged Gini beyond the
+available series endpoint. Ukraine R11 requires 2023 lagged Gini and
+unemployment values that are not available in the local source series.
+Kosovo R6 has the required lagged SWIID value but no finite unemployment
+observation in the local macroeconomic source.
+
+Missing annual components are not interpolated, extrapolated or removed
+by renormalising the remaining interview-year shares.
 
 # Measurement audits
 
@@ -539,55 +562,113 @@ establish a zero population effect.
 
 ## Weighting
 
-All current models are unweighted. Equal round weights in contextual
-decomposition do not imply equal country weights in model estimation.
+All current substantive models are unweighted. Equal round weights in
+the contextual decomposition do not imply equal country weights in model
+estimation.
 
-The extended dataset retains `analysis_weight`. For R1–R9 this is
-inherited from the baseline data. For R10–R11 the preparation script
-uses positive, non-missing `anweight` where available, otherwise a
-positive, non-missing product of `pspwght` and `pweight`.
+The ESS weight-construction audit has been completed. Across the
+processed R1–R11 dataset, all 518,597 respondents have a valid positive
+`analysis_weight`, and the processed value exactly reproduces the
+expected weight reconstructed from the raw ESS data.
 
-The separate weight components are not retained in that script’s output
-and may need to be recovered from source data. Retaining
-`analysis_weight` does not mean it has been used in the fitted models.
+Where supplied `anweight` is available, it is substantively identical to
+`pspwght × pweight`. Across 428,060 respondents for whom both are
+available, the median absolute discrepancy is approximately (5.4 ^{-9}),
+and the maximum is approximately (1.27 ^{-6}). These differences are
+consistent with floating-point or rounding differences rather than
+substantive disagreement between the supplied and reconstructed weights.
 
-The next methodological task is to define the intended estimand and
-decide how ESS design, post-stratification and population-size weighting
-should operate in this multilevel analysis. Implementation and
-sensitivity comparisons should follow that decision.
+The audit also distinguishes the components of the ESS analysis weight.
+`pspwght` primarily adjusts respondent composition within national
+samples, whereas `pweight` changes the relative influence of countries
+according to population size. Across country-rounds, `pweight` ranges
+from approximately 0.022 to 5.45, so including it would materially alter
+the relative influence of countries.
+
+The weight-construction question is therefore considered resolved. The
+remaining issue is the estimand and corresponding multilevel
+implementation.
+
+The current unweighted REWB models remain the primary specification
+until that decision is made. Planned sensitivity work should distinguish
+respondent-level post-stratification weighting from full population-size
+weighting rather than treating `analysis_weight` as a single automatic
+solution. Supplying a weight variable directly to `lme4::lmer` should
+not be treated as equivalent to implementing a complex-survey multilevel
+analysis.
 
 ## Exposure uncertainty
 
-The reported models condition on constructed exposure point estimates.
-They do not propagate SWIID imputation uncertainty or V-Dem measurement
-uncertainty.
+The currently reported substantive models condition on constructed
+exposure point estimates. They therefore do not yet propagate SWIID or
+V-Dem measurement uncertainty.
 
-SWIID uncertainty requires constructing the relevant exposures and
-decompositions across imputations, fitting the specified models and
-applying an appropriate pooling procedure. The available 100 imputations
-have not yet been carried through that workflow.
+The SWIID 9.92 uncertainty input has been audited. The R-format file
+contains the expected 100 imputations. The imputation data and
+`swiid_summary` contain the same 6,628 country-years, with no
+country-years appearing in only one representation.
 
-V-Dem uncertainty requires a documented approach consistent with the
-available uncertainty information and the dependence structure of the
-estimates. Its combination with SWIID uncertainty remains an open
-methodological decision.
+The simulated `gini_disp` values are stored on a scale that requires
+division by 100 to recover conventional Gini-point units. After scaling,
+values in the first imputation range from approximately 16.5 to 69.4.
+The mean values across the 100 released imputations correlate 0.996 with
+the corresponding `swiid_summary` estimates, while the empirical
+standard deviations correlate 0.950 with the published summary
+uncertainty measure. These comparisons are treated as structural and
+scale checks rather than as a requirement that the released imputations
+exactly reproduce `swiid_summary`.
+
+A dedicated uncertainty workflow reconstructs the one-year-lagged
+country-round Gini exposure separately within each SWIID imputation
+using the observed ESS interview-year shares. Annual observations
+contributing to a country-round are always taken from the same SWIID
+imputation. The within-country and between-country Gini components are
+then recalculated separately within each imputation before the REWB
+models are fitted.
+
+The workflow has been validated on the first three imputations for R1–R9
+using M3 and M4. Analytical samples were identical across the three
+runs:
+
+| Model | Respondents | Countries | Country-rounds |
+|-------|------------:|----------:|---------------:|
+| M3    |     420,905 |        38 |            227 |
+| M4    |     419,618 |        37 |            226 |
+
+All six validation models converged without warnings or singular fits.
+
+The three-imputation results are procedural checks rather than
+substantive pooled estimates. They nevertheless demonstrate that SWIID
+uncertainty is propagated through the country-round exposure
+construction and within-between decomposition without changing
+analytical sample membership.
+
+The next step is to run all 100 SWIID imputations for R1–R9, inspect the
+pooled M3 and M4 estimates and uncertainty, and then extend the same
+procedure to R1–R11 and the relevant interview-mode sensitivity.
+
+V-Dem measurement uncertainty remains a separate outstanding
+methodological issue. Its eventual combination with SWIID uncertainty
+requires an approach that respects the dependence structure of both sets
+of estimates.
 
 # Completed and outstanding sensitivity work
 
-| Check | Status through 2 October 2026 |
+| Check | Status through 2026-05-10 |
 |----|----|
 | R1–R9 and R1–R11 moderation models | Completed |
 | Country deletion for M5 and M6 | Completed; 150 clean refits |
-| Contextual exclusions and sample reproduction | Completed; upstream causes partly unresolved |
+| Contextual exclusions and sample reproduction | Completed; exclusions reproduced exactly and upstream causes documented |
 | Contemporaneous versus lagged hate speech | Completed on identical samples |
 | In-person restriction for R1–R11 | Completed |
 | Within-country Gini variation diagnostic | Completed |
+| ESS weight construction | Completed; modelling estimand and weighting implementation remain open |
+| SWIID uncertainty input audit | Completed |
+| SWIID imputation modelling | Three-imputation R1–R9 validation completed; full 100-imputation analysis outstanding |
 | OECD IDD instead of SWIID | Outstanding |
 | Contemporaneous instead of lagged inequality | Outstanding |
-| SWIID imputation uncertainty | Outstanding |
 | V-Dem measurement uncertainty | Outstanding |
-| Survey weighting | Outstanding |
-| Verification and sensitivity of fieldwork timing | Outstanding |
+| Verification and sensitivity of partial fieldwork timing | Outstanding |
 | Country-round influence | Outstanding; distinct from country deletion |
 | Alternative temporal trends, random effects or adjustment sets | To be prioritised with substantive justification |
 | Trust/fairness/helpfulness composite | Outstanding conceptual and measurement checks |
@@ -645,6 +726,7 @@ uncertainty and robustness work is resolved.
 | `04_code/03_models/07_party_hate_country_influence.R` | Country-deletion analysis |
 | `04_code/03_models/08_party_hate_timing_comparison.R` | Hate-speech timing comparison |
 | `04_code/03_models/09_party_hate_mode_sensitivity.R` | In-person sensitivity |
+| `04_code/03_models/10_swiid_uncertainty.R` | SWIID-imputation exposure construction, REWB fitting and pooling |
 
 ## Descriptive and audit scripts
 
@@ -654,6 +736,9 @@ uncertainty and robustness work is resolved.
 | `04_code/02_descriptives/05_party_hate_moderation_slopes.R` | Conditional Gini-slope figure |
 | `04_code/02_descriptives/06_party_hate_sample_audit.R` | Contextual exclusions and sample verification |
 | `04_code/02_descriptives/07_gini_variation_audit.R` | Within-country Gini variation diagnostic |
+| `04_code/02_descriptives/08_context_source_audit.R` | Source-level diagnosis of contextual-data exclusions |
+| `04_code/02_descriptives/09_weight_audit.R` | ESS weight construction, linkage and component audit |
+| `04_code/02_descriptives/10_swiid_uncertainty_audit.R` | SWIID imputation structure, scale and summary-series consistency checks |
 
 ## Methods notebooks
 
@@ -676,35 +761,53 @@ generated outputs remain local. Selected figures are copied into
 
 # Next tasks
 
-1.  Trace the remaining contextual missingness to the source and
-    construction steps, distinguishing unavailable source data from
-    timing or processing limitations. Verify fieldwork timing where
-    interview-year gaps are substantial.
-2.  Decide the survey-weighting estimand and implementation, recovering
-    separate weight components if needed. Document the choice before
-    fitting weighted sensitivity models.
-3.  Implement and pool the SWIID-imputation analysis, then determine how
-    to incorporate V-Dem measurement uncertainty.
-4.  Prioritise the remaining inequality-source, inequality-timing,
-    model-structure and outcome-measure checks rather than adding
-    specifications without a substantive rationale.
-5.  Decide which analytical period leads the paper, complete the
+1.  Run the full 100-imputation SWIID uncertainty analysis for R1–R9,
+    inspect the pooled M3 and M4 estimates, and then extend the
+    validated workflow to R1–R11 and the relevant interview-mode
+    sensitivity.
+2.  Decide the survey-weighting estimand and implementation. Distinguish
+    respondent-level post-stratification from population-size weighting
+    and document the decision before fitting weighted sensitivity
+    models.
+3.  Verify partial interview-year coverage where gaps are substantial
+    and determine whether improved fieldwork information materially
+    changes any contextual exposure.
+4.  Implement the remaining inequality-source and timing sensitivities,
+    particularly OECD IDD and contemporaneous inequality, prioritising
+    specifications with a clear substantive rationale.
+5.  Determine how V-Dem measurement uncertainty should be represented
+    and whether it needs to be combined with SWIID uncertainty in the
+    final moderation analysis.
+6.  Decide which analytical period leads the paper, complete the
     literature assessment and align manuscript, README and methods
     terminology.
-6.  Revisit party-affiliation, V-Party and wider-project extensions once
+7.  Revisit party-affiliation, V-Party and wider-project extensions once
     their contribution to the main paper is clear.
 
 # Open design decisions
 
 - Whether R1–R9 or R1–R11 leads the paper; both remain part of the
   current analysis.
-- The final weighting strategy and intended relative contributions of
-  countries and respondents.
-- The treatment and pooling of SWIID uncertainty and its combination
-  with V-Dem uncertainty.
+- The final weighting estimand and the intended relative contributions
+  of countries and respondents.
+- The substantive implications of the full SWIID uncertainty analysis
+  and how SWIID uncertainty should be combined, if at all, with V-Dem
+  measurement uncertainty.
 - Whether the random-intercept structure, round effects and adjustment
   set are sufficient for the final analysis.
-- Whether validated fieldwork information can resolve Estonia R5 or
-  improve timing weights elsewhere.
+- Whether improved fieldwork information can materially refine timing
+  weights in country-rounds with incomplete interview-year coverage.
 - Which remaining alternative measures and specifications warrant
   inclusion in the main paper.
+
+# Document maintenance
+
+Edit `research_design.qmd` as the authoritative source. Do not edit the
+rendered `research_design.md` independently.
+
+From the repository root, regenerate the GitHub-readable Markdown file
+with:
+
+``` bash
+quarto render 02_research-design/research_design.qmd
+```
