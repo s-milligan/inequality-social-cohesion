@@ -40,14 +40,23 @@ vignettes/*.pdf
 .Renviron
 
 # pkgdown site
+# Documentation
 # Ignore docs content by default
 /docs/*
+
+# Track Quarto source notebooks and the methods README
 !/docs/methods/
-!/docs/methods/**
+/docs/methods/*
+!/docs/methods/*.qmd
+!/docs/methods/README.md
 
 # Allow selected public figures
 !/docs/figures/
 !/docs/figures/**
+
+# Generated README HTML
+/README.html
+/03_data/README.html
 
 # translation temp files
 po/*~
