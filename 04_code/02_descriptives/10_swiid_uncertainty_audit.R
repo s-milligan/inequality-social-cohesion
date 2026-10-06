@@ -23,9 +23,10 @@
 #   3. that gini_disp is stored in hundredths in the imputation
 #      objects and is correctly rescaled to the conventional
 #      0-100 Gini scale;
-#   4. that the mean and standard deviation across the 100
-#      imputations correspond closely to the values reported in
-#      swiid_summary.
+#   4. that the country-year structure of the imputations matches
+#      swiid_summary, and to describe how the empirical mean and
+#      standard deviation across imputations compare with the
+#      published summary values.
 #
 # No ESS data are modified and no models are fitted here.
 # ------------------------------------------------------------
@@ -527,11 +528,12 @@ if (
 #
 # For each country-year, calculate:
 #
-#   - the mean Gini across the 100 draws;
-#   - the standard deviation across the 100 draws.
+#   - the empirical mean Gini across the 100 imputations;
+#   - the empirical standard deviation across the 100 imputations.
 #
-# These should correspond closely to the point estimate and
-# uncertainty reported in swiid_summary.
+# These provide descriptive checks on the scale and distribution of
+# the released imputations. Exact agreement with swiid_summary is not
+# required or assumed.
 
 draw_summary <- swiid_draws |>
   group_by(
@@ -585,11 +587,15 @@ print(
 )
 
 
-# Compare draws with swiid_summary -----------------------------------
+# Compare imputations with swiid_summary ------------------------------
 #
-# The summary dataset is intended to provide the corresponding
-# mean-plus-standard-error representation of the uncertainty
-# contained in the multiply imputed SWIID data.
+# Compare the empirical distribution of the released imputations with
+# the published SWIID summary values as a descriptive quality check.
+#
+# The audit does not assume that the 100 imputations are independent
+# Monte Carlo draws whose empirical mean must reproduce the summary
+# estimate, or that gini_disp_se is the Monte Carlo standard error of
+# that empirical mean.
 
 required_summary_variables <- c(
   "country",
@@ -724,11 +730,12 @@ print(
 )
 
 
-# Quantify agreement between the supplied summary estimates and the
-# estimates reconstructed from the 100 draws.
+# Quantify the descriptive agreement between the supplied summary
+# estimates and the empirical moments of the 100 imputations.
 #
-# Some very small differences are expected because the published
-# summary values may be rounded.
+# Differences are reported rather than evaluated against a formal
+# Monte Carlo tolerance. The released imputations and summary values
+# need not reproduce one another exactly.
 
 agreement_summary <- summary_comparison |>
   filter(
@@ -801,122 +808,6 @@ cat(
 
 print(
   agreement_summary,
-  width = Inf
-)
-
-# Assess discrepancies relative to expected Monte Carlo variation --------
-#
-# The 100 released SWIID imputations are draws from the estimated
-# uncertainty distribution. Their empirical mean will therefore not
-# necessarily equal the published summary mean exactly.
-#
-# If the published gini_disp_se represents the underlying uncertainty
-# of a country-year estimate, then the expected Monte Carlo standard
-# error of the mean across m imputations is approximately:
-#
-#   gini_disp_se / sqrt(m)
-#
-# We therefore standardise the difference between the draw mean and
-# the published summary mean by this quantity.
-#
-# Values around +/- 1 are entirely unsurprising. If the 100 draws are
-# behaving as expected, approximately 95% of country-years should fall
-# within roughly +/- 2 Monte Carlo standard errors.
-
-monte_carlo_check <- summary_comparison |>
-  filter(
-    !is.na(
-      gini_disp_summary
-    ),
-    !is.na(
-      gini_disp_draw_mean
-    ),
-    !is.na(
-      gini_disp_se_summary
-    ),
-    gini_disp_se_summary > 0
-  ) |>
-  mutate(
-    monte_carlo_se_mean =
-      gini_disp_se_summary /
-      sqrt(
-        n_imputations
-      ),
-    
-    mean_difference_standardised =
-      mean_difference /
-      monte_carlo_se_mean,
-    
-    sd_ratio =
-      gini_disp_draw_sd /
-      gini_disp_se_summary
-  )
-
-
-monte_carlo_summary <- monte_carlo_check |>
-  summarise(
-    n = n(),
-    
-    median_standardised_difference =
-      median(
-        mean_difference_standardised
-      ),
-    
-    p025_standardised_difference =
-      quantile(
-        mean_difference_standardised,
-        0.025,
-        names = FALSE
-      ),
-    
-    p975_standardised_difference =
-      quantile(
-        mean_difference_standardised,
-        0.975,
-        names = FALSE
-      ),
-    
-    share_within_2_mcse =
-      mean(
-        abs(
-          mean_difference_standardised
-        ) <= 2
-      ),
-    
-    share_within_3_mcse =
-      mean(
-        abs(
-          mean_difference_standardised
-        ) <= 3
-      ),
-    
-    median_sd_ratio =
-      median(
-        sd_ratio
-      ),
-    
-    p05_sd_ratio =
-      quantile(
-        sd_ratio,
-        0.05,
-        names = FALSE
-      ),
-    
-    p95_sd_ratio =
-      quantile(
-        sd_ratio,
-        0.95,
-        names = FALSE
-      )
-  )
-
-
-cat(
-  "\nMonte Carlo consistency of the 100 SWIID draws:\n"
-)
-
-print(
-  monte_carlo_summary,
   width = Inf
 )
 
