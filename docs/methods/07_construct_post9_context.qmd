@@ -1,0 +1,429 @@
+---
+title: "Constructing post-Round-9 contextual exposures"
+subtitle: "Interview-timing-weighted inequality and macroeconomic context for ESS Rounds 10–11"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    code-copy: true
+    embed-resources: true
+    df-print: paged
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: source
+---
+
+## Purpose and status
+
+This notebook documents the construction of country-round contextual exposures for European Social Survey (ESS) Rounds 10 and 11.
+
+The authoritative executable script is:
+
+```text
+04_code/01_import-clean/07_construct_post9_context.R
+```
+
+The construction extends the contextual-data logic developed for Rounds 1–9 to the post-R9 ESS period while preserving actual interview timing.
+
+The contextual variables are:
+
+- SWIID disposable-income Gini;
+- World Bank GDP per capita, PPP;
+- World Bank unemployment.
+
+For each measure, both contemporaneous and one-year-lagged country-round values are constructed.
+
+The primary specification uses the one-year lag.
+
+This step does **not** append Rounds 10 and 11 respondents to the analysis dataset. That occurs subsequently in:
+
+```text
+04_code/01_import-clean/08_build_ess_extended_analysis.R
+```
+
+## Inputs
+
+The construction uses:
+
+```text
+03_data/interim/ess_post9_country_round_year_coverage.csv
+03_data/interim/ess_post9_country_round_coverage.csv
+03_data/interim/ess_inequality_coverage.csv
+
+03_data/raw/inequality/swiid/
+03_data/raw/macro/world_bank/
+```
+
+The first two files describe actual ESS interview timing in Rounds 10 and 11.
+
+The Rounds 1–9 inequality-coverage file is used to reuse the established ESS-to-SWIID country correspondence.
+
+## Outputs
+
+The main country-round output is:
+
+```text
+03_data/interim/ess_post9_context.csv
+```
+
+Additional diagnostics are written to:
+
+```text
+03_data/interim/ess_post9_context_year_coverage.csv
+03_data/interim/ess_post9_context_annual_coverage_summary.csv
+03_data/interim/ess_post9_context_country_round_coverage_summary.csv
+03_data/interim/ess_post9_context_complete_summary.csv
+03_data/interim/ess_post9_context_gaps.csv
+```
+
+## Run the authoritative construction
+
+Rather than maintain a second copy of the full construction code in this notebook, the notebook executes the authoritative R script and then exposes the resulting objects and diagnostics.
+
+```{r}
+#| label: run-post9-context
+#| include: false
+
+library(dplyr)
+library(here)
+library(readr)
+library(tidyr)
+
+source(
+  here(
+    "04_code",
+    "01_import-clean",
+    "07_construct_post9_context.R"
+  )
+)
+```
+
+## 1. Actual ESS interview timing
+
+ESS country-rounds are not assigned a single nominal survey year.
+
+Instead, the contextual exposure uses the observed distribution of interviews across calendar years.
+
+For country $c$, ESS round $t$, and interview year $y$, define:
+
+$$
+s_{cty}
+=
+\frac{n_{cty}}
+{\sum_y n_{cty}},
+$$
+
+where $n_{cty}$ is the number of respondents with a usable interview year in that country-round-year cell.
+
+The shares therefore sum to one among respondents with known interview timing.
+
+```{r}
+#| label: post9-year-shares
+
+year_shares |>
+  select(
+    cntry,
+    essround,
+    interview_year,
+    n_respondents,
+    n_known_date,
+    n_total,
+    interview_year_share,
+    known_date_share,
+    lag_year
+  ) |>
+  arrange(
+    essround,
+    cntry,
+    interview_year
+  )
+```
+
+The construction also retains `known_date_share`, the proportion of respondents in the country-round with usable interview-year information.
+
+This separates two issues:
+
+1. how interviews with known dates are distributed across years;
+2. how completely interview timing is observed in the country-round.
+
+```{r}
+#| label: incomplete-interview-timing
+
+year_shares |>
+  distinct(
+    cntry,
+    essround,
+    n_total,
+    n_known_date,
+    known_date_share
+  ) |>
+  filter(
+    known_date_share < 1
+  ) |>
+  arrange(
+    known_date_share,
+    essround,
+    cntry
+  )
+```
+
+Respondents without a usable interview year are not assigned to an assumed calendar year.
+
+The contextual value is based on the observed timing distribution among respondents for whom timing is known.
+
+## 2. One-year-lagged contextual exposure
+
+For a contextual variable $X$, the one-year-lagged country-round exposure is:
+
+$$
+X^{lag1}_{ct}
+=
+\sum_y
+s_{cty}
+X_{c,y-1}.
+$$
+
+The contemporaneous exposure is:
+
+$$
+X^{current}_{ct}
+=
+\sum_y
+s_{cty}
+X_{cy}.
+$$
+
+This means that a country-round spanning several interview years can incorporate several annual contextual observations.
+
+For example, if 80% of dated respondents were interviewed in 2021 and 20% in 2022, the lagged Gini exposure is:
+
+$$
+0.80 \times Gini_{2020}
++
+0.20 \times Gini_{2021}.
+$$
+
+## 3. SWIID inequality
+
+The primary inequality source is SWIID version 9.92.
+
+The construction uses the disposable-income Gini coefficient.
+
+ESS country codes are mapped explicitly to SWIID country names. The established Rounds 1–9 mapping is reused and supplemented where required for countries appearing only in the later ESS rounds.
+
+The construction uses `swiid_summary` for these summary-series contextual exposures.
+
+An important scale distinction is retained:
+
+- `gini_disp` in `swiid_summary` is already expressed on the conventional 0–100 Gini scale;
+- `gini_disp` in the individual SWIID imputation objects is stored in hundredths and must be divided by 100.
+
+The latter distinction becomes important in the separate SWIID uncertainty workflow.
+
+## 4. Macroeconomic controls
+
+GDP and unemployment are drawn from World Bank country-year data.
+
+The current indicators are:
+
+| Construct | World Bank indicator | Transformation |
+|---|---|---|
+| GDP per capita, PPP | `NY.GDP.PCAP.PP.KD` | Natural logarithm |
+| Unemployment | `SL.UEM.TOTL.ZS` | None |
+
+GDP per capita is measured in constant 2021 international dollars.
+
+The unemployment series is the modelled ILO estimate as a percentage of the total labour force.
+
+ESS two-letter country codes are matched to World Bank ISO3 codes through an explicit project crosswalk.
+
+Both contemporaneous and one-year-lagged annual values are attached before country-round aggregation.
+
+## 5. Annual contextual-data coverage
+
+Coverage is assessed before aggregation.
+
+```{r}
+#| label: annual-context-coverage
+
+annual_coverage_summary
+```
+
+This distinction matters because a country-round may span more than one interview year.
+
+Having one annual contextual value available is not sufficient if another required annual component is missing.
+
+## 6. Complete-component rule
+
+Country-round contextual exposures are constructed only when the contextual source provides values for **every** interview-year component required by the observed fieldwork timing.
+
+The operative rule in the R script is equivalent to:
+
+```r
+weighted_if_complete <- function(x, w) {
+  if (all(!is.na(x))) {
+    sum(x * w)
+  } else {
+    NA_real_
+  }
+}
+```
+
+This is a consequential design choice.
+
+The workflow does not:
+
+- interpolate missing annual source values;
+- extrapolate beyond the end of a source series;
+- drop missing years and renormalise the remaining interview-year weights.
+
+Suppose a country-round has:
+
+$$
+s_{ct,2022}=0.2
+$$
+
+and
+
+$$
+s_{ct,2023}=0.8.
+$$
+
+If the lagged contextual source contains the required 2021 value but not the required 2022 value, the country-round receives a missing lagged exposure.
+
+It is **not** treated as if all respondents had been exposed to the 2021 value.
+
+This prevents source-data availability from changing the substantive timing represented by the country-round exposure.
+
+## 7. Country-round exposures
+
+The constructed post-R9 context contains:
+
+- `gini_swiid_current`;
+- `gini_swiid_lag1`;
+- `log_gdp_pc_ppp_current`;
+- `log_gdp_pc_ppp_lag1`;
+- `unemployment_current`;
+- `unemployment_lag1`.
+
+The primary contextual-data completeness flag is:
+
+```r
+complete_primary_context =
+  !is.na(gini_swiid_lag1) &
+  !is.na(log_gdp_pc_ppp_lag1) &
+  !is.na(unemployment_lag1)
+```
+
+This flag corresponds to the contextual variables required by the macro-adjusted models.
+
+```{r}
+#| label: country-round-context-coverage
+
+country_round_coverage_summary
+```
+
+```{r}
+#| label: complete-context-summary
+
+complete_context_summary
+```
+
+## 8. Contextual-data gaps
+
+The construction explicitly retains country-rounds whose contextual values cannot be completed.
+
+```{r}
+#| label: post9-context-gaps
+
+context_gaps |>
+  select(
+    cntry,
+    essround,
+    n_respondents,
+    known_date_share,
+    gini_swiid_lag1,
+    log_gdp_pc_ppp_lag1,
+    unemployment_lag1,
+    missing_gini,
+    missing_gdp,
+    missing_unemployment
+  ) |>
+  arrange(
+    essround,
+    cntry
+  )
+```
+
+These rows should not be interpreted as processing failures.
+
+The subsequent source audit traces the missingness to identifiable source-series or timing limitations.
+
+The relevant audit script is:
+
+```text
+04_code/02_descriptives/08_context_source_audit.R
+```
+
+For the complete Rounds 1–11 macro-context sample, the later-round exclusions arise primarily because the one-year lag requires source values beyond the available endpoint of the local SWIID or macroeconomic series.
+
+No missing annual components are filled by extrapolation.
+
+## 9. Relationship to the extended ESS dataset
+
+The output `ess_post9_context.csv` is subsequently read by:
+
+```text
+04_code/01_import-clean/08_build_ess_extended_analysis.R
+```
+
+That script:
+
+1. harmonises ESS Rounds 10 and 11 to the Rounds 1–9 respondent structure;
+2. attaches the post-R9 lagged SWIID exposure;
+3. combines baseline and later-round macro context;
+4. creates the Rounds 1–11 respondent-level analysis dataset;
+5. retains interview mode for sensitivity analysis.
+
+The principal extended respondent-level output is:
+
+```text
+03_data/processed/ess_analysis_r1_r11.rds
+```
+
+The corresponding combined contextual files are:
+
+```text
+03_data/interim/ess_country_round_macro_r1_r11.csv
+03_data/interim/ess_country_round_context_r1_r11.csv
+```
+
+## 10. Interpretation
+
+The post-R9 construction preserves the same substantive timing principle used in the baseline analysis:
+
+> contextual conditions are attached according to when ESS respondents were actually interviewed, rather than according to a nominal survey-round year.
+
+The one-year-lag specification therefore represents a timing-weighted approximation to contextual conditions preceding the observed survey interviews.
+
+It should not be interpreted as a precise individual-level exposure date.
+
+The country-round remains the contextual unit.
+
+## 11. Reproducibility notes
+
+The notebook depends on locally available ESS, SWIID, and World Bank source data that are not distributed through the public repository.
+
+The executable R script remains authoritative for the construction itself.
+
+This notebook documents the methodological choices that are especially important for interpretation:
+
+- use of actual interview timing;
+- explicit country-source mappings;
+- one-year lagging;
+- respondent-share aggregation;
+- the complete-component rule;
+- preservation of source-data gaps rather than interpolation or renormalisation.

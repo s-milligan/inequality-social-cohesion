@@ -1,0 +1,668 @@
+---
+title: "Propagating SWIID inequality uncertainty"
+subtitle: "Input audit, imputation-specific exposure construction and Rubin pooling"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    code-copy: true
+    embed-resources: true
+    df-print: paged
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: source
+---
+
+## Purpose and status
+
+This notebook documents the treatment of uncertainty in the Standardized World Income Inequality Database (SWIID) version 9.92.
+
+Two executable scripts underpin the workflow:
+
+```text
+04_code/02_descriptives/10_swiid_uncertainty_audit.R
+04_code/03_models/10_swiid_uncertainty.R
+```
+
+The first audits the structure and scale of the released SWIID imputations.
+
+The second propagates those imputations through the Rounds 1–9 random-effects within-between (REWB) models.
+
+At the time this notebook was added, the modelling workflow had been successfully validated using the first three SWIID imputations.
+
+The next analytical step is the full 100-imputation Rounds 1–9 run.
+
+Results from runs with fewer than 100 imputations are therefore validation results and should not be treated as final uncertainty-pooled estimates.
+
+This notebook does **not** refit the multilevel models when rendered. It reads the saved diagnostic and model outputs produced by the executable scripts.
+
+## 1. Why propagate SWIID uncertainty?
+
+The primary inequality measure is the SWIID disposable-income Gini coefficient.
+
+SWIID estimates are model-based and therefore contain measurement uncertainty.
+
+The main summary-series models treat the reported country-year Gini values as observed contextual covariates.
+
+The uncertainty workflow asks whether the substantive conclusions change when the uncertainty represented by the released SWIID imputations is propagated through:
+
+1. country-round exposure construction;
+2. within-between decomposition;
+3. model estimation;
+4. coefficient pooling.
+
+The purpose is not to replace the summary-series analysis automatically.
+
+It is to assess how much the uncertainty in the inequality exposure contributes to uncertainty in the estimated inequality-trust relationship.
+
+## 2. SWIID input structure
+
+The R-format SWIID 9.92 file is:
+
+```text
+03_data/raw/inequality/swiid/swiid9_92.rda
+```
+
+It contains two relevant objects:
+
+- `swiid`: a list of 100 imputed country-year inequality datasets;
+- `swiid_summary`: the published country-year summary values and associated uncertainty.
+
+The uncertainty audit verifies:
+
+- exactly 100 imputations are present;
+- each imputation has the expected structure;
+- `country`, `year`, and `gini_disp` are present;
+- country-year keys are unique within each imputation;
+- the country-year structure of the imputations matches `swiid_summary`.
+
+## 3. Gini scale
+
+The two SWIID objects use different numerical representations.
+
+In `swiid_summary`, `gini_disp` is already on the conventional 0–100 Gini scale.
+
+In the individual imputation objects, the raw values are stored in hundredths.
+
+Thus:
+
+$$
+Gini^{scaled}_{cy,m}
+=
+\frac{Gini^{raw}_{cy,m}}{100},
+$$
+
+where:
+
+- $c$ indexes country;
+- $y$ indexes year;
+- $m$ indexes SWIID imputation.
+
+This scale conversion is required before constructing ESS country-round exposures.
+
+The audit stops if the raw values do not have the expected scale.
+
+## 4. Descriptive comparison with `swiid_summary`
+
+The uncertainty audit calculates, for every country-year:
+
+- the empirical mean across the 100 released imputations;
+- the empirical standard deviation across the 100 released imputations.
+
+These quantities are compared descriptively with the published `swiid_summary` point estimate and uncertainty measure.
+
+The comparison is a quality-assurance check.
+
+It does **not** assume that:
+
+- the 100 released imputations are independent Monte Carlo draws whose empirical mean must reproduce `swiid_summary`;
+- `gini_disp_se / sqrt(100)` is an appropriate tolerance for the difference between the imputation mean and the published summary estimate.
+
+No formal Monte Carlo consistency test is therefore applied.
+
+The released imputations and the summary series need not reproduce one another exactly.
+
+## 5. Saved audit diagnostics
+
+The audit writes compact outputs to:
+
+```text
+05_output/tables/swiid_uncertainty_audit/
+```
+
+```{r}
+#| label: setup
+
+library(dplyr)
+library(here)
+library(readr)
+
+read_optional <- function(path) {
+  if (file.exists(path)) {
+    read_csv(
+      path,
+      show_col_types = FALSE
+    )
+  } else {
+    tibble()
+  }
+}
+
+audit_dir <- here(
+  "05_output",
+  "tables",
+  "swiid_uncertainty_audit"
+)
+
+model_dir <- here(
+  "05_output",
+  "tables",
+  "swiid_uncertainty"
+)
+```
+
+### Imputation coverage
+
+```{r}
+#| label: swiid-imputation-coverage
+
+imputation_coverage <- read_optional(
+  file.path(
+    audit_dir,
+    "swiid_imputation_coverage.csv"
+  )
+)
+
+imputation_coverage
+```
+
+The completed audit found complete 100-imputation coverage for each of the 6,628 SWIID country-years represented in both the imputation data and `swiid_summary`.
+
+### Country-year structure
+
+```{r}
+#| label: swiid-structure
+
+structure_check <- read_optional(
+  file.path(
+    audit_dir,
+    "swiid_summary_draw_structure.csv"
+  )
+)
+
+structure_check
+```
+
+The expected result is:
+
+- no country-years present only in `swiid_summary`;
+- no country-years present only in the imputation data;
+- 6,628 country-years present in both.
+
+### Descriptive agreement
+
+```{r}
+#| label: swiid-summary-comparison
+
+agreement <- read_optional(
+  file.path(
+    audit_dir,
+    "swiid_summary_draw_agreement.csv"
+  )
+)
+
+agreement
+```
+
+The purpose of this table is descriptive.
+
+Differences between the published summary values and empirical moments of the released imputations are reported rather than judged against a formal Monte Carlo tolerance.
+
+## 6. ESS timing and exposure construction
+
+The uncertainty models use the same country-round timing logic as the main analysis.
+
+For each country-round, the observed ESS interview-year distribution is used to construct a one-year-lagged Gini exposure.
+
+For SWIID imputation $m$:
+
+$$
+Gini^{lag1}_{ct,m}
+=
+\sum_y
+s_{cty}
+Gini_{c,y-1,m},
+$$
+
+where $s_{cty}$ is the share of dated ESS respondents in country $c$, round $t$, interviewed in year $y$.
+
+A crucial feature is that all annual values entering one country-round exposure come from the **same SWIID imputation**.
+
+Annual values from different imputations are never mixed within one contextual exposure.
+
+## 7. Complete-component rule
+
+As in the main contextual-data workflow, an imputation-specific country-round Gini is constructed only if all annual components required by the observed ESS timing are available.
+
+The model script does not renormalise the interview-year weights over available SWIID years.
+
+If a country-round requires two lagged annual values and one is missing in a given imputation, the country-round Gini for that imputation is missing.
+
+This keeps the uncertainty workflow consistent with the main exposure-construction rule.
+
+## 8. Recalculate the within-between decomposition within each imputation
+
+The Gini decomposition is recalculated separately for every SWIID imputation.
+
+This is necessary because uncertainty in the annual inequality values affects both:
+
+- the country's estimated average inequality;
+- the country-round deviation from that average.
+
+For country $c$, round $t$, and imputation $m$:
+
+$$
+Gini^{B}_{c,m}
+=
+\frac{1}{T_c}
+\sum_t
+Gini_{ct,m},
+$$
+
+and:
+
+$$
+Gini^{W}_{ct,m}
+=
+Gini_{ct,m}
+-
+Gini^{B}_{c,m}.
+$$
+
+The decomposition is calculated from unique country-round observations.
+
+Respondent sample size therefore does not give larger ESS country-rounds greater weight when calculating country-level contextual means.
+
+The between-country component is grand-mean centred before model estimation.
+
+## 9. M3 and M4 samples
+
+The uncertainty workflow fits two established Rounds 1–9 specifications.
+
+### M3
+
+M3 includes:
+
+- within-country Gini;
+- between-country Gini;
+- ESS round fixed effects;
+- age and age squared;
+- gender;
+- education;
+- country random intercept;
+- country-round random intercept.
+
+In schematic form:
+
+$$
+Trust_{ict}
+=
+\beta_0
++
+\beta_W Gini^W_{ct}
++
+\beta_B Gini^B_c
++
+\mathbf{X}_{ict}\boldsymbol{\gamma}
++
+\delta_t
++
+u_c
++
+v_{ct}
++
+\epsilon_{ict}.
+$$
+
+### M4
+
+M4 adds within-between decompositions of:
+
+- log GDP per capita, PPP;
+- unemployment.
+
+The contextual decomposition for M4 is recalculated on the complete macro-data sample for each imputation.
+
+This is important because the relevant country means should correspond to the observations actually contributing to the fitted model.
+
+Both models are estimated using maximum likelihood with the same random-effects structure and optimiser settings as the corresponding main REWB analysis.
+
+No survey weights are currently applied, matching the primary models.
+
+## 10. Sample stability across imputations
+
+SWIID uncertainty should alter the Gini values, not arbitrarily alter which ESS observations enter the model.
+
+The script therefore checks that, within each model, all fitted imputations have identical:
+
+- respondent counts;
+- country counts;
+- country-round counts.
+
+```{r}
+#| label: uncertainty-sample-stability
+
+sample_stability <- read_optional(
+  file.path(
+    model_dir,
+    "swiid_sample_stability.csv"
+  )
+)
+
+sample_stability
+```
+
+During the three-imputation validation run, the samples were stable:
+
+| Model | Respondents | Countries | Country-rounds |
+|---|---:|---:|---:|
+| M3 | 420,905 | 38 | 227 |
+| M4 | 419,618 | 37 | 226 |
+
+The script stops if those counts vary across imputations.
+
+## 11. Model diagnostics
+
+Each fitted model is checked for:
+
+- singularity;
+- optimiser convergence messages.
+
+```{r}
+#| label: uncertainty-model-diagnostics
+
+model_diagnostics <- read_optional(
+  file.path(
+    model_dir,
+    "swiid_model_diagnostics.csv"
+  )
+)
+
+model_diagnostics
+```
+
+The initial three-imputation validation produced six fitted models and no singular fits or convergence messages.
+
+That validation establishes that the workflow can be run cleanly.
+
+It does not substitute for the full 100-imputation analysis.
+
+## 12. Coefficient variation across imputations
+
+Before pooling, the workflow summarises how the Gini coefficients vary across imputations.
+
+```{r}
+#| label: gini-imputation-variation
+
+gini_variation <- read_optional(
+  file.path(
+    model_dir,
+    "swiid_gini_imputation_summary.csv"
+  )
+)
+
+gini_variation
+```
+
+This diagnostic helps distinguish two situations:
+
+1. SWIID uncertainty produces very little variation in the estimated coefficient;
+2. SWIID uncertainty is large enough to contribute materially to inferential uncertainty.
+
+The comparison should be made relative to the model-based standard errors, not from the raw coefficient range alone.
+
+## 13. Rubin pooling
+
+Fixed-effect estimates are pooled using Rubin's rules.
+
+For coefficient $Q$, let:
+
+$$
+\bar{Q}
+=
+\frac{1}{m}
+\sum_{j=1}^{m}
+Q_j
+$$
+
+be the average coefficient across $m$ imputations.
+
+The average within-imputation sampling variance is:
+
+$$
+\bar{U}
+=
+\frac{1}{m}
+\sum_{j=1}^{m}
+U_j.
+$$
+
+The between-imputation variance is:
+
+$$
+B
+=
+\frac{1}{m-1}
+\sum_{j=1}^{m}
+(Q_j-\bar{Q})^2.
+$$
+
+The total variance is:
+
+$$
+T
+=
+\bar{U}
++
+\left(
+1+\frac{1}{m}
+\right)B.
+$$
+
+The pooled standard error is:
+
+$$
+SE(\bar{Q})
+=
+\sqrt{T}.
+$$
+
+This combines:
+
+- ordinary model-based sampling uncertainty;
+- additional uncertainty associated with the SWIID inequality imputations.
+
+The script also calculates an approximate Rubin degrees of freedom and the fraction of missing information.
+
+## 14. Fraction of missing information
+
+For the implemented pooling calculation, the fraction of missing information is based on the share of total coefficient variance attributable to between-imputation uncertainty:
+
+$$
+FMI
+=
+\frac{
+\left(1+\frac{1}{m}\right)B
+}{
+T
+}.
+$$
+
+A small value indicates that SWIID imputation uncertainty contributes relatively little to total uncertainty for that coefficient.
+
+A larger value indicates that the inequality measurement uncertainty has a more material effect on inference.
+
+The substantive interpretation should focus especially on the within-country Gini coefficient because it is the main inequality parameter of interest.
+
+## 15. Pooled Gini results
+
+```{r}
+#| label: pooled-gini-results
+
+pooled_gini <- read_optional(
+  file.path(
+    model_dir,
+    "swiid_pooled_gini_results.csv"
+  )
+)
+
+pooled_gini
+```
+
+If the saved run contains fewer than 100 imputations, these estimates are validation outputs only.
+
+```{r}
+#| label: uncertainty-run-status
+
+run_status <- if (
+  nrow(sample_stability) > 0
+) {
+  sample_stability |>
+    summarise(
+      imputations_run =
+        max(n_imputations),
+      status =
+        if_else(
+          imputations_run == 100,
+          "Full 100-imputation run",
+          "Validation run only"
+        )
+    )
+} else {
+  tibble(
+    imputations_run = NA_integer_,
+    status = "No saved model outputs found"
+  )
+}
+
+run_status
+```
+
+## 16. Comparison with the summary-series analysis
+
+Where the existing point-estimate results are available, the workflow compares the SWIID-pooled Gini coefficients with the models based on `swiid_summary`.
+
+```{r}
+#| label: point-vs-pooled
+
+point_vs_pooled <- read_optional(
+  file.path(
+    model_dir,
+    "swiid_point_vs_pooled_gini.csv"
+  )
+)
+
+point_vs_pooled
+```
+
+The comparison reports:
+
+- the change in the coefficient estimate;
+- the change in its standard error;
+- the pooled confidence interval;
+- the fraction of missing information.
+
+Two distinct questions should be kept separate:
+
+1. Does propagating SWIID uncertainty materially change the point estimate?
+2. Does it materially increase uncertainty around that estimate?
+
+A stable point estimate can still be accompanied by a wider uncertainty interval.
+
+## 17. Why the summary-series audit is descriptive
+
+The audit deliberately avoids treating the empirical mean of the 100 released SWIID imputations as a Monte Carlo estimate that must equal `swiid_summary`.
+
+In particular, the workflow does not standardise:
+
+$$
+\bar{Gini}_{draws}
+-
+Gini_{summary}
+$$
+
+using:
+
+$$
+\frac{SE_{summary}}{\sqrt{100}}.
+$$
+
+That diagnostic was considered and rejected because it imposes an unverified interpretation of the relationship between the released imputations and the published summary object.
+
+The retained audit therefore checks:
+
+- structural consistency;
+- scale;
+- country-year coverage;
+- descriptive agreement.
+
+The inferential use of the imputations occurs in the model pooling stage, where uncertainty is propagated through the actual estimand of interest.
+
+## 18. Current validation result
+
+The initial three-imputation run established that:
+
+- the R1–R9 analytical samples remain identical across imputations;
+- M3 and M4 fit without singularity or convergence warnings;
+- Gini coefficients vary across imputations as expected;
+- the full exposure-construction, decomposition, fitting, extraction, and pooling pipeline executes successfully.
+
+Because only three imputations were used, the pooled quantities from that run are diagnostic rather than final.
+
+The next required step is to set:
+
+```r
+n_imputations_to_run <- 100L
+```
+
+and rerun the Rounds 1–9 workflow.
+
+## 19. Planned extensions
+
+After the full Rounds 1–9 uncertainty analysis is reviewed, the same logic should be extended to:
+
+1. the Rounds 1–11 analysis;
+2. the Rounds 1–11 in-person-only sensitivity analysis.
+
+The central design principles should remain unchanged:
+
+- use the same imputation consistently across all annual components of one exposure;
+- reconstruct country-round exposures within each imputation;
+- recalculate within-between components within each imputation;
+- preserve the complete-component rule;
+- fit the same substantive specification within each imputation;
+- pool fixed-effect estimates only after model fitting.
+
+## 20. Reproducibility and interpretation
+
+The executable scripts remain authoritative.
+
+The audit script verifies the SWIID inputs before modelling.
+
+The model script produces the imputation-specific models and Rubin-pooled outputs.
+
+This notebook is intended to make transparent the non-obvious methodological decisions connecting those two stages.
+
+The uncertainty analysis should be interpreted as a sensitivity analysis for uncertainty in the SWIID inequality exposure.
+
+It does not address:
+
+- uncertainty in V-Dem political-discourse measures;
+- uncertainty in World Bank macroeconomic controls;
+- alternative survey-weighting estimands;
+- broader model-specification uncertainty.
+
+Those issues require separate sensitivity analyses.
