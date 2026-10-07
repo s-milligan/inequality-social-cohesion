@@ -44,7 +44,7 @@ library(tibble)
 # VALIDATION RUN:
 # Keep this at 3 until the model pipeline has been checked.
 
-n_imputations_to_run <- 3L
+n_imputations_to_run <- 100L
 
 
 # 2. Load ESS R1-R9 data --------------------------------------------
@@ -1550,9 +1550,9 @@ if (
 # uncertainty and uncertainty in the SWIID inequality estimates.
 
 pool_rubin <- function(
-  estimates
+    estimates
 ) {
-
+  
   estimates |>
     group_by(
       model,
@@ -1561,22 +1561,22 @@ pool_rubin <- function(
     summarise(
       m =
         n(),
-
-      estimate =
+      
+      pooled_estimate =
         mean(
           estimate
         ),
-
+      
       within_variance =
         mean(
           within_variance
         ),
-
+      
       between_variance =
         var(
           estimate
         ),
-
+      
       .groups = "drop"
     ) |>
     mutate(
@@ -1587,12 +1587,12 @@ pool_rubin <- function(
             1 / m
         ) *
         between_variance,
-
+      
       std_error =
         sqrt(
           total_variance
         ),
-
+      
       relative_increase_variance =
         case_when(
           within_variance > 0 ~
@@ -1602,21 +1602,21 @@ pool_rubin <- function(
             ) *
             between_variance /
             within_variance,
-
+          
           TRUE ~
             NA_real_
         ),
-
+      
       rubin_df =
         case_when(
           is.na(
             between_variance
           ) ~
             NA_real_,
-
+          
           between_variance == 0 ~
             Inf,
-
+          
           relative_increase_variance > 0 ~
             (
               m -
@@ -1627,11 +1627,11 @@ pool_rubin <- function(
                 1 /
                 relative_increase_variance
             )^2,
-
+          
           TRUE ~
             Inf
         ),
-
+      
       fraction_missing_information =
         case_when(
           total_variance > 0 ~
@@ -1641,15 +1641,15 @@ pool_rubin <- function(
             ) *
             between_variance /
             total_variance,
-
+          
           TRUE ~
             NA_real_
         ),
-
+      
       statistic =
-        estimate /
+        pooled_estimate /
         std_error,
-
+      
       critical_value =
         case_when(
           is.finite(
@@ -1659,23 +1659,23 @@ pool_rubin <- function(
               0.975,
               df = rubin_df
             ),
-
+          
           TRUE ~
             qnorm(
               0.975
             )
         ),
-
+      
       conf_low =
-        estimate -
+        pooled_estimate -
         critical_value *
         std_error,
-
+      
       conf_high =
-        estimate +
+        pooled_estimate +
         critical_value *
         std_error,
-
+      
       p_value =
         case_when(
           is.finite(
@@ -1689,7 +1689,7 @@ pool_rubin <- function(
               df = rubin_df,
               lower.tail = FALSE
             ),
-
+          
           TRUE ~
             2 *
             pnorm(
@@ -1700,11 +1700,12 @@ pool_rubin <- function(
             )
         )
     ) |>
-    select(
+    transmute(
       model,
       term,
       m,
-      estimate,
+      estimate =
+        pooled_estimate,
       std_error,
       conf_low,
       conf_high,
