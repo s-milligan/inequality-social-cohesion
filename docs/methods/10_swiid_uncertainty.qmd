@@ -31,11 +31,11 @@ The first audits the structure and scale of the released SWIID imputations.
 
 The second propagates those imputations through the Rounds 1–9 random-effects within-between (REWB) models.
 
-At the time this notebook was added, the modelling workflow had been successfully validated using the first three SWIID imputations.
+The modelling workflow was first validated using three SWIID imputations and has now been completed for all 100 imputations in the Rounds 1–9 sample.
 
-The next analytical step is the full 100-imputation Rounds 1–9 run.
+Across the full run, the analytical samples were identical across imputations, all 200 fitted multilevel models converged without singularity warnings, and the Rubin-pooled results led to the same substantive conclusions as the models based on the SWIID summary series.
 
-Results from runs with fewer than 100 imputations are therefore validation results and should not be treated as final uncertainty-pooled estimates.
+The next step is to extend the same uncertainty-propagation workflow to the Rounds 1–11 sample and the Rounds 1–11 in-person-only sensitivity analysis.
 
 This notebook does **not** refit the multilevel models when rendered. It reads the saved diagnostic and model outputs produced by the executable scripts.
 
@@ -365,14 +365,14 @@ sample_stability <- read_optional(
 sample_stability
 ```
 
-During the three-imputation validation run, the samples were stable:
+Across all 100 SWIID imputations, the samples were completely stable:
 
 | Model | Respondents | Countries | Country-rounds |
 |---|---:|---:|---:|
 | M3 | 420,905 | 38 | 227 |
 | M4 | 419,618 | 37 | 226 |
 
-The script stops if those counts vary across imputations.
+The script stops if those counts vary across imputations. No sample variation occurred in the completed 100-imputation run.
 
 ## 11. Model diagnostics
 
@@ -396,9 +396,11 @@ model_diagnostics
 
 The initial three-imputation validation produced six fitted models and no singular fits or convergence messages.
 
-That validation establishes that the workflow can be run cleanly.
+The completed 100-imputation analysis produced 200 fitted models: 100 for M3 and 100 for M4.
 
-It does not substitute for the full 100-imputation analysis.
+None of the models was singular and none produced an optimiser convergence message.
+
+This indicates that the uncertainty-propagation workflow is computationally stable across the full set of released SWIID imputations.
 
 ## 12. Coefficient variation across imputations
 
@@ -522,7 +524,6 @@ pooled_gini <- read_optional(
 pooled_gini
 ```
 
-If the saved run contains fewer than 100 imputations, these estimates are validation outputs only.
 
 ```{r}
 #| label: uncertainty-run-status
@@ -611,28 +612,41 @@ The retained audit therefore checks:
 
 The inferential use of the imputations occurs in the model pooling stage, where uncertainty is propagated through the actual estimand of interest.
 
-## 18. Current validation result
+## 18. Completed Rounds 1–9 uncertainty analysis
 
-The initial three-imputation run established that:
+The full 100-imputation Rounds 1–9 analysis has now been completed.
 
-- the R1–R9 analytical samples remain identical across imputations;
-- M3 and M4 fit without singularity or convergence warnings;
-- Gini coefficients vary across imputations as expected;
-- the full exposure-construction, decomposition, fitting, extraction, and pooling pipeline executes successfully.
+The pooled estimates for the Gini coefficients were:
 
-Because only three imputations were used, the pooled quantities from that run are diagnostic rather than final.
+| Model | Effect | Pooled estimate | SE | 95% CI | p | FMI |
+|---|---|---:|---:|---:|---:|---:|
+| M3 | Between-country Gini | -0.134 | 0.0330 | [-0.198, -0.069] | < .001 | 0.038 |
+| M3 | Within-country Gini | 0.0018 | 0.0139 | [-0.025, 0.029] | .896 | 0.412 |
+| M4 | Between-country Gini | -0.0465 | 0.0283 | [-0.102, 0.009] | .101 | 0.036 |
+| M4 | Within-country Gini | 0.0070 | 0.0134 | [-0.019, 0.033] | .605 | 0.410 |
 
-The next required step is to set:
+Propagating SWIID uncertainty therefore does not materially change the substantive conclusions of the Rounds 1–9 models.
 
-```r
-n_imputations_to_run <- 100L
-```
+For the within-country Gini coefficient, the pooled estimates remain close to zero and statistically imprecise in both M3 and M4.
 
-and rerun the Rounds 1–9 workflow.
+The fraction of missing information is approximately 0.41 for the within-country Gini coefficient in both models, indicating that variation across SWIID imputations contributes meaningfully to uncertainty in this parameter.
+
+However, the resulting pooled standard errors are very similar to those from the corresponding summary-series models:
+
+| Model | Summary-series SE | Pooled SE |
+|---|---:|---:|
+| M3 within-country Gini | 0.0136 | 0.0139 |
+| M4 within-country Gini | 0.0133 | 0.0134 |
+
+Thus, although SWIID measurement uncertainty is non-negligible, propagating it through the models does not materially alter either the estimated within-country inequality effect or the overall inferential conclusion.
+
+The between-country estimates are even less sensitive to SWIID uncertainty, with fractions of missing information below 0.04 in both M3 and M4.
+
+The M3 between-country association remains strongly negative after pooling, whereas the corresponding association is substantially attenuated after adjustment for GDP and unemployment in M4.
 
 ## 19. Planned extensions
 
-After the full Rounds 1–9 uncertainty analysis is reviewed, the same logic should be extended to:
+Having completed the full Rounds 1–9 uncertainty analysis, the same logic should now be extended to:
 
 1. the Rounds 1–11 analysis;
 2. the Rounds 1–11 in-person-only sensitivity analysis.
