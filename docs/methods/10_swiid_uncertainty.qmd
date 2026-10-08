@@ -20,24 +20,34 @@ editor: source
 
 This notebook documents the treatment of uncertainty in the Standardized World Income Inequality Database (SWIID) version 9.92.
 
-Two executable scripts underpin the workflow:
+Four executable scripts underpin the workflow:
 
 ```text
 04_code/02_descriptives/10_swiid_uncertainty_audit.R
 04_code/03_models/10_swiid_uncertainty.R
+04_code/03_models/11_swiid_uncertainty_r1_r11.R
+04_code/03_models/12_swiid_uncertainty_r1_r11_inperson.R
 ```
 
 The first audits the structure and scale of the released SWIID imputations.
 
-The second propagates those imputations through the Rounds 1–9 random-effects within-between (REWB) models.
+The second propagates all 100 SWIID imputations through the Rounds 1–9 random-effects within-between (REWB) models.
 
-The modelling workflow was first validated using three SWIID imputations and has now been completed for all 100 imputations in the Rounds 1–9 sample.
+The third applies the same uncertainty-propagation workflow to the full Rounds 1–11 sample.
 
-Across the full run, the analytical samples were identical across imputations, all 200 fitted multilevel models converged without singularity warnings, and the Rubin-pooled results led to the same substantive conclusions as the models based on the SWIID summary series.
+The fourth validates the workflow after restricting the respondent sample to in-person interviews. This final check uses three SWIID imputations rather than repeating the full 100-imputation analysis.
 
-The next step is to extend the same uncertainty-propagation workflow to the Rounds 1–11 sample and the Rounds 1–11 in-person-only sensitivity analysis.
+The full 100-imputation analyses have now been completed for both Rounds 1–9 and Rounds 1–11. In both samples:
 
-This notebook does **not** refit the multilevel models when rendered. It reads the saved diagnostic and model outputs produced by the executable scripts.
+- analytical samples were identical across all 100 imputations;
+- all fitted multilevel models converged without singularity warnings;
+- Rubin-pooled estimates closely reproduced the conclusions from models based on the SWIID summary series.
+
+The Rounds 1–11 in-person sensitivity was additionally checked across three SWIID imputations. The analytical sample was stable, all fitted models converged cleanly, and the imputation-specific and pooled coefficients remained close to the corresponding summary-series in-person estimates.
+
+Because the full Rounds 1–11 uncertainty analysis had already established robustness to SWIID measurement uncertainty, the in-person analysis was treated as a validation of the mode-restricted specification rather than as a second full 100-imputation uncertainty analysis.
+
+This notebook does not refit the multilevel models when rendered. It reads the saved diagnostic and model outputs produced by the executable scripts.
 
 ## 1. Why propagate SWIID uncertainty?
 
@@ -161,6 +171,18 @@ model_dir <- here(
   "05_output",
   "tables",
   "swiid_uncertainty"
+)
+
+model_dir_r1_r11 <- here(
+  "05_output",
+  "tables",
+  "swiid_uncertainty_r1_r11"
+)
+
+model_dir_inperson <- here(
+  "05_output",
+  "tables",
+  "swiid_uncertainty_r1_r11_inperson"
 )
 ```
 
@@ -290,7 +312,11 @@ The between-country component is grand-mean centred before model estimation.
 
 ## 9. M3 and M4 samples
 
-The uncertainty workflow fits two established Rounds 1–9 specifications.
+The uncertainty workflow evaluates the established M3 and M4 specifications in three analytical samples:
+
+1. Rounds 1–9;
+2. Rounds 1–11;
+3. Rounds 1–11 restricted to in-person interviews.
 
 ### M3
 
@@ -334,19 +360,31 @@ M4 adds within-between decompositions of:
 - log GDP per capita, PPP;
 - unemployment.
 
-The contextual decomposition for M4 is recalculated on the complete macro-data sample for each imputation.
-
-This is important because the relevant country means should correspond to the observations actually contributing to the fitted model.
+The contextual decomposition for M4 is recalculated on the complete macro-data sample within each SWIID imputation.
 
 Both models are estimated using maximum likelihood with the same random-effects structure and optimiser settings as the corresponding main REWB analysis.
 
 No survey weights are currently applied, matching the primary models.
 
+### In-person sensitivity
+
+For the Rounds 1–11 in-person sensitivity, the contextual inequality exposure is **not** reconstructed using only the interview dates of in-person respondents.
+
+Instead, the same country-round exposure definition used in the main Rounds 1–11 analysis is retained, based on the full country-round distribution of interview years.
+
+Only the respondent-level estimation sample is restricted to:
+
+```text
+interview_mode == "In-person"
+```
+
+This keeps the contextual exposure fixed and isolates the interview-mode restriction rather than changing both survey mode and exposure construction simultaneously.
+
 ## 10. Sample stability across imputations
 
 SWIID uncertainty should alter the Gini values, not arbitrarily alter which ESS observations enter the model.
 
-The script therefore checks that, within each model, all fitted imputations have identical:
+The scripts therefore check that all fitted imputations within each analysis have identical:
 
 - respondent counts;
 - country counts;
@@ -355,24 +393,56 @@ The script therefore checks that, within each model, all fitted imputations have
 ```{r}
 #| label: uncertainty-sample-stability
 
-sample_stability <- read_optional(
-  file.path(
-    model_dir,
-    "swiid_sample_stability.csv"
-  )
+sample_stability <- bind_rows(
+  read_optional(
+    file.path(
+      model_dir,
+      "swiid_sample_stability.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R9",
+      .before = 1
+    ),
+
+  read_optional(
+    file.path(
+      model_dir_r1_r11,
+      "swiid_sample_stability.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R11",
+      .before = 1
+    ),
+
+  read_optional(
+    file.path(
+      model_dir_inperson,
+      "swiid_sample_stability.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R11 in-person",
+      .before = 1
+    )
 )
 
 sample_stability
 ```
 
-Across all 100 SWIID imputations, the samples were completely stable:
+The resulting samples were completely stable within each analysis:
 
-| Model | Respondents | Countries | Country-rounds |
-|---|---:|---:|---:|
-| M3 | 420,905 | 38 | 227 |
-| M4 | 419,618 | 37 | 226 |
+| Sample | Model | Respondents | Countries | Country-rounds | Imputations |
+|---|---|---:|---:|---:|---:|
+| R1–R9 | M3 | 420,905 | 38 | 227 | 100 |
+| R1–R9 | M4 | 419,618 | 37 | 226 | 100 |
+| R1–R11 | M3 | 499,748 | 39 | 274 | 100 |
+| R1–R11 | M4 | 498,461 | 38 | 273 | 100 |
+| R1–R11 in-person | M3 | 496,277 | 39 | 274 | 3 |
+| R1–R11 in-person | M4 | 494,990 | 38 | 273 | 3 |
 
-The script stops if those counts vary across imputations. No sample variation occurred in the completed 100-imputation run.
+The in-person restriction therefore reduces the respondent count but does not reduce the number of usable countries or country-rounds relative to the corresponding all-mode Rounds 1–11 models.
 
 ## 11. Model diagnostics
 
@@ -384,23 +454,75 @@ Each fitted model is checked for:
 ```{r}
 #| label: uncertainty-model-diagnostics
 
-model_diagnostics <- read_optional(
-  file.path(
-    model_dir,
-    "swiid_model_diagnostics.csv"
-  )
+model_diagnostics <- bind_rows(
+  read_optional(
+    file.path(
+      model_dir,
+      "swiid_model_diagnostics.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R9",
+      .before = 1
+    ),
+
+  read_optional(
+    file.path(
+      model_dir_r1_r11,
+      "swiid_model_diagnostics.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R11",
+      .before = 1
+    ),
+
+  read_optional(
+    file.path(
+      model_dir_inperson,
+      "swiid_model_diagnostics.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R11 in-person",
+      .before = 1
+    )
 )
 
-model_diagnostics
+diagnostic_summary <- model_diagnostics |>
+  group_by(
+    sample,
+    model
+  ) |>
+  summarise(
+    n_fits = n(),
+
+    singular_fits =
+      sum(
+        singular,
+        na.rm = TRUE
+      ),
+
+    convergence_messages =
+      sum(
+        !is.na(
+          convergence_message
+        )
+      ),
+
+    .groups = "drop"
+  )
+
+diagnostic_summary
 ```
 
-The initial three-imputation validation produced six fitted models and no singular fits or convergence messages.
+The completed workflow produced:
 
-The completed 100-imputation analysis produced 200 fitted models: 100 for M3 and 100 for M4.
+- 200 fitted models for Rounds 1–9;
+- 200 fitted models for Rounds 1–11;
+- six fitted models for the three-imputation Rounds 1–11 in-person validation.
 
-None of the models was singular and none produced an optimiser convergence message.
-
-This indicates that the uncertainty-propagation workflow is computationally stable across the full set of released SWIID imputations.
+None was singular and none produced an optimiser convergence message.
 
 ## 12. Coefficient variation across imputations
 
@@ -409,22 +531,47 @@ Before pooling, the workflow summarises how the Gini coefficients vary across im
 ```{r}
 #| label: gini-imputation-variation
 
-gini_variation <- read_optional(
-  file.path(
-    model_dir,
-    "swiid_gini_imputation_summary.csv"
-  )
+gini_variation <- bind_rows(
+  read_optional(
+    file.path(
+      model_dir,
+      "swiid_gini_imputation_summary.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R9",
+      .before = 1
+    ),
+
+  read_optional(
+    file.path(
+      model_dir_r1_r11,
+      "swiid_gini_imputation_summary.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R11",
+      .before = 1
+    ),
+
+  read_optional(
+    file.path(
+      model_dir_inperson,
+      "swiid_gini_imputation_summary.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R11 in-person",
+      .before = 1
+    )
 )
 
 gini_variation
 ```
 
-This diagnostic helps distinguish two situations:
+The comparison should be interpreted relative to the model-based standard errors rather than from the raw coefficient range alone.
 
-1. SWIID uncertainty produces very little variation in the estimated coefficient;
-2. SWIID uncertainty is large enough to contribute materially to inferential uncertainty.
-
-The comparison should be made relative to the model-based standard errors, not from the raw coefficient range alone.
+For the in-person validation, the three-imputation variation is used only as a diagnostic. Three imputations are not sufficient for treating the resulting Rubin variance estimates, confidence intervals or fraction of missing information as final inferential results.
 
 ## 13. Rubin pooling
 
@@ -514,74 +661,104 @@ The substantive interpretation should focus especially on the within-country Gin
 ```{r}
 #| label: pooled-gini-results
 
-pooled_gini <- read_optional(
-  file.path(
-    model_dir,
-    "swiid_pooled_gini_results.csv"
-  )
+pooled_gini <- bind_rows(
+  read_optional(
+    file.path(
+      model_dir,
+      "swiid_pooled_gini_results.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R9",
+      analysis_status = "Full 100-imputation analysis",
+      .before = 1
+    ),
+
+  read_optional(
+    file.path(
+      model_dir_r1_r11,
+      "swiid_pooled_gini_results.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R11",
+      analysis_status = "Full 100-imputation analysis",
+      .before = 1
+    ),
+
+  read_optional(
+    file.path(
+      model_dir_inperson,
+      "swiid_pooled_gini_results.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R11 in-person",
+      analysis_status = "Three-imputation validation only",
+      .before = 1
+    )
 )
 
 pooled_gini
 ```
 
+The Rounds 1–9 and Rounds 1–11 pooled estimates are based on all 100 released SWIID imputations.
 
-```{r}
-#| label: uncertainty-run-status
-
-run_status <- if (
-  nrow(sample_stability) > 0
-) {
-  sample_stability |>
-    summarise(
-      imputations_run =
-        max(n_imputations),
-      status =
-        if_else(
-          imputations_run == 100,
-          "Full 100-imputation run",
-          "Validation run only"
-        )
-    )
-} else {
-  tibble(
-    imputations_run = NA_integer_,
-    status = "No saved model outputs found"
-  )
-}
-
-run_status
-```
+The in-person results are retained for validation only and should not be presented as final Rubin-pooled inference.
 
 ## 16. Comparison with the summary-series analysis
 
-Where the existing point-estimate results are available, the workflow compares the SWIID-pooled Gini coefficients with the models based on `swiid_summary`.
+The workflow compares the SWIID-based estimates with the corresponding models using the SWIID summary series.
 
 ```{r}
 #| label: point-vs-pooled
 
-point_vs_pooled <- read_optional(
-  file.path(
-    model_dir,
-    "swiid_point_vs_pooled_gini.csv"
-  )
+point_vs_pooled <- bind_rows(
+  read_optional(
+    file.path(
+      model_dir,
+      "swiid_point_vs_pooled_gini.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R9",
+      .before = 1
+    ),
+
+  read_optional(
+    file.path(
+      model_dir_r1_r11,
+      "swiid_point_vs_pooled_gini.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R11",
+      .before = 1
+    ),
+
+  read_optional(
+    file.path(
+      model_dir_inperson,
+      "swiid_point_vs_pooled_gini.csv"
+    )
+  ) |>
+    mutate(
+      sample = "R1-R11 in-person",
+      .before = 1
+    )
 )
 
 point_vs_pooled
 ```
 
-The comparison reports:
-
-- the change in the coefficient estimate;
-- the change in its standard error;
-- the pooled confidence interval;
-- the fraction of missing information.
-
-Two distinct questions should be kept separate:
+Two distinct questions remain important:
 
 1. Does propagating SWIID uncertainty materially change the point estimate?
 2. Does it materially increase uncertainty around that estimate?
 
-A stable point estimate can still be accompanied by a wider uncertainty interval.
+For the two full 100-imputation analyses, both questions can be evaluated directly.
+
+For the in-person sensitivity, the comparison is used only to establish that the three sampled SWIID draws do not indicate an anomalous dependence of the mode-restricted results on inequality measurement uncertainty.
 
 ## 17. Why the summary-series audit is descriptive
 
@@ -612,11 +789,11 @@ The retained audit therefore checks:
 
 The inferential use of the imputations occurs in the model pooling stage, where uncertainty is propagated through the actual estimand of interest.
 
-## 18. Completed Rounds 1–9 uncertainty analysis
+## 18. Completed uncertainty analyses
 
-The full 100-imputation Rounds 1–9 analysis has now been completed.
+### 18.1 Rounds 1–9
 
-The pooled estimates for the Gini coefficients were:
+The full 100-imputation Rounds 1–9 analysis produced:
 
 | Model | Effect | Pooled estimate | SE | 95% CI | p | FMI |
 |---|---|---:|---:|---:|---:|---:|
@@ -625,52 +802,119 @@ The pooled estimates for the Gini coefficients were:
 | M4 | Between-country Gini | -0.0465 | 0.0283 | [-0.102, 0.009] | .101 | 0.036 |
 | M4 | Within-country Gini | 0.0070 | 0.0134 | [-0.019, 0.033] | .605 | 0.410 |
 
-Propagating SWIID uncertainty therefore does not materially change the substantive conclusions of the Rounds 1–9 models.
+Propagating SWIID uncertainty does not materially alter the Rounds 1–9 conclusions.
 
-For the within-country Gini coefficient, the pooled estimates remain close to zero and statistically imprecise in both M3 and M4.
+For the within-country Gini coefficient, the fraction of missing information is approximately 0.41 in both M3 and M4, indicating meaningful variation across SWIID imputations.
 
-The fraction of missing information is approximately 0.41 for the within-country Gini coefficient in both models, indicating that variation across SWIID imputations contributes meaningfully to uncertainty in this parameter.
-
-However, the resulting pooled standard errors are very similar to those from the corresponding summary-series models:
+However, the pooled standard errors remain almost identical to the corresponding summary-series standard errors.
 
 | Model | Summary-series SE | Pooled SE |
 |---|---:|---:|
 | M3 within-country Gini | 0.0136 | 0.0139 |
 | M4 within-country Gini | 0.0133 | 0.0134 |
 
-Thus, although SWIID measurement uncertainty is non-negligible, propagating it through the models does not materially alter either the estimated within-country inequality effect or the overall inferential conclusion.
+Thus, SWIID measurement uncertainty is non-negligible but does not materially alter inference.
 
-The between-country estimates are even less sensitive to SWIID uncertainty, with fractions of missing information below 0.04 in both M3 and M4.
+### 18.2 Rounds 1–11
 
-The M3 between-country association remains strongly negative after pooling, whereas the corresponding association is substantially attenuated after adjustment for GDP and unemployment in M4.
+The full 100-imputation Rounds 1–11 analysis produced:
 
-## 19. Planned extensions
+| Model | Effect | Pooled estimate | SE | 95% CI | p | FMI |
+|---|---|---:|---:|---:|---:|---:|
+| M3 | Between-country Gini | -0.135 | 0.0333 | [-0.200, -0.070] | < .001 | 0.043 |
+| M3 | Within-country Gini | 0.0010 | 0.0113 | [-0.021, 0.023] | .929 | 0.370 |
+| M4 | Between-country Gini | -0.0447 | 0.0280 | [-0.100, 0.010] | .110 | 0.038 |
+| M4 | Within-country Gini | 0.0049 | 0.0112 | [-0.017, 0.027] | .663 | 0.380 |
 
-Having completed the full Rounds 1–9 uncertainty analysis, the same logic should now be extended to:
+The corresponding summary-series estimates were:
 
-1. the Rounds 1–11 analysis;
-2. the Rounds 1–11 in-person-only sensitivity analysis.
+| Model | Effect | Summary-series estimate | Summary-series SE |
+|---|---|---:|---:|
+| M3 | Between-country Gini | -0.137 | 0.0327 |
+| M3 | Within-country Gini | 0.0008 | 0.0114 |
+| M4 | Between-country Gini | -0.0430 | 0.0276 |
+| M4 | Within-country Gini | 0.0073 | 0.0112 |
 
-The central design principles should remain unchanged:
+The pooled and summary-series results are therefore extremely similar.
 
-- use the same imputation consistently across all annual components of one exposure;
-- reconstruct country-round exposures within each imputation;
-- recalculate within-between components within each imputation;
-- preserve the complete-component rule;
-- fit the same substantive specification within each imputation;
-- pool fixed-effect estimates only after model fitting.
+For the within-country Gini coefficients, the fractions of missing information are approximately 0.37–0.38, again showing that SWIID uncertainty contributes meaningfully to the variance decomposition.
+
+Nevertheless, the ratios of pooled to summary-series standard errors are approximately one:
+
+| Model | SE ratio |
+|---|---:|
+| M3 within-country Gini | 0.994 |
+| M4 within-country Gini | 0.997 |
+
+Explicit propagation of SWIID uncertainty therefore has essentially no effect on the overall precision or substantive interpretation of the Rounds 1–11 within-country inequality estimates.
+
+The results also closely reproduce the Rounds 1–9 findings. Extending the analysis through Rounds 10–11 does not materially alter the average within-country or between-country Gini coefficients.
+
+### 18.3 Rounds 1–11 in-person validation
+
+The interview-mode sensitivity restricts the respondent sample to in-person interviews while retaining the same country-round contextual exposure definition used in the main Rounds 1–11 analysis.
+
+The summary-series in-person estimates were compared with estimates from three SWIID imputations:
+
+| Model | Effect | Summary-series estimate | Three-draw pooled estimate | Difference |
+|---|---|---:|---:|---:|
+| M3 | Between-country Gini | -0.137 | -0.134 | 0.0025 |
+| M3 | Within-country Gini | 0.0016 | 0.0006 | -0.0011 |
+| M4 | Between-country Gini | -0.0431 | -0.0425 | 0.0006 |
+| M4 | Within-country Gini | 0.0080 | 0.0046 | -0.0035 |
+
+Across the three sampled imputations, the within-country coefficients varied modestly relative to their ordinary model-based uncertainty:
+
+| Model | SD across three imputations | Mean model SE |
+|---|---:|---:|
+| M3 within-country Gini | 0.0042 | 0.0096 |
+| M4 within-country Gini | 0.0039 | 0.0094 |
+
+The sample was identical across the three imputations and none of the six fitted models was singular or produced a convergence warning.
+
+These results indicate no evidence that restricting the analysis to in-person interviews creates a qualitatively different sensitivity to SWIID measurement uncertainty.
+
+The three-imputation results are treated strictly as a validation exercise. Their Rubin-pooled confidence intervals, p-values, degrees of freedom and fractions of missing information are not treated as final inferential quantities.
+
+A full 100-imputation in-person analysis was not repeated because:
+
+1. the complete 100-imputation Rounds 1–11 analysis had already established that SWIID uncertainty does not materially alter inference;
+2. the in-person analysis addresses a separate survey-mode concern;
+3. the three-imputation validation showed stable samples, clean model fitting and close agreement with the summary-series in-person estimates.
+
+Repeating all 100 imputations would therefore amount primarily to crossing two already evaluated sensitivity dimensions rather than addressing a distinct unresolved source of uncertainty.
+
+## 19. Reporting decision
+
+The preferred reporting strategy is therefore:
+
+- use the SWIID summary-series models for the main presentation;
+- report the full 100-imputation Rounds 1–11 analysis as the principal sensitivity analysis for SWIID measurement uncertainty;
+- retain the full 100-imputation Rounds 1–9 results as a historical-sample robustness check;
+- report the summary-series Rounds 1–11 in-person model as the interview-mode sensitivity;
+- describe the three-imputation in-person exercise as a validation showing no indication that SWIID uncertainty behaves anomalously under the mode restriction.
+
+The results support use of the SWIID summary series for the primary model presentation because explicit uncertainty propagation does not materially change the estimated inequality coefficients, their precision or the substantive conclusions.
+
+This does not imply that SWIID measurement uncertainty is negligible.
+
+For the within-country Gini coefficients, approximately 37–41% of the Rubin total variance is attributable to between-imputation variation in the two full analyses.
+
+Rather, the substantive conclusion is that this additional source of uncertainty is not large enough to alter inference relative to the summary-series specifications.
 
 ## 20. Reproducibility and interpretation
 
 The executable scripts remain authoritative.
 
-The audit script verifies the SWIID inputs before modelling.
+The uncertainty audit verifies the SWIID inputs before modelling.
 
-The model script produces the imputation-specific models and Rubin-pooled outputs.
+The Rounds 1–9 and Rounds 1–11 model scripts reconstruct contextual exposures separately within each SWIID imputation, recalculate the within-between decomposition and pool the fitted fixed effects using Rubin's rules.
 
-This notebook is intended to make transparent the non-obvious methodological decisions connecting those two stages.
+The in-person validation preserves the same contextual exposure definition as the main Rounds 1–11 analysis and restricts only the respondent-level estimation sample.
 
-The uncertainty analysis should be interpreted as a sensitivity analysis for uncertainty in the SWIID inequality exposure.
+This notebook documents the methodological decisions connecting those stages and records the completed sensitivity results.
+
+The SWIID uncertainty analysis addresses uncertainty in the inequality exposure.
 
 It does not address:
 
