@@ -1,0 +1,243 @@
+---
+title: "Temporal heterogeneity in the inequality–trust association"
+subtitle: "Separate and combined later-round tests, ESS Rounds 1–11"
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-copy: true
+    embed-resources: true
+execute:
+  echo: false
+  warning: true
+  message: false
+---
+
+## Purpose and status
+
+This notebook documents whether the *within-country* association between disposable-income inequality and generalised trust differs in the later European Social Survey (ESS) rounds. It reports two completed analyses:
+
+- Separate-round specification: distinguish the R10 and R11 Gini slopes from the common R1–R9 slope (`04_code/03_models/05_period_interactions.R`).
+- Combined later-period specification: compare the pooled R10–R11 slope with R1–R9, both for all survey modes and for in-person respondents only (`04_code/03_models/13_post_r9_combined_interaction.R`).
+
+Both scripts have been run and the resulting models and diagnostics reviewed. The notebook reads their saved local CSV outputs; rendering it does not refit models. The measured outcome throughout is generalised trust (`ppltrst`), rather than social cohesion as a whole.
+
+## Required outputs and setup
+
+Run the two scripts above before rendering. Their generated tables are kept locally under `05_output/tables/` and are not required to be committed to the public repository.
+
+```{r}
+#| label: setup
+#| include: false
+
+library(dplyr)
+library(readr)
+library(here)
+library(knitr)
+
+separate_dir <- here("05_output", "tables")
+combined_dir <- here("05_output", "tables", "period_interactions_combined")
+
+read_result <- function(directory, filename, script) {
+  path <- file.path(directory, filename)
+  if (!file.exists(path)) {
+    stop("Missing analysis output: ", path,
+         "\nRun ", script, " before rendering this notebook.")
+  }
+  read_csv(path, show_col_types = FALSE)
+}
+
+read_separate <- function(filename) {
+  read_result(separate_dir, filename,
+              "04_code/03_models/05_period_interactions.R")
+}
+
+read_combined <- function(filename) {
+  read_result(combined_dir, filename,
+              "04_code/03_models/13_post_r9_combined_interaction.R")
+}
+```
+
+## Research question and model specification
+
+The question is whether changes in national income inequality are associated differently with trust in ESS R10–R11 than in R1–R9. The primary exposure is the one-year-lagged SWIID version 9.92 disposable-income Gini, constructed at the country-round level using the observed interview-year distribution.
+
+The models use the established random-effects within-between (REWB) decomposition. In the notation below, $G^W_{ct}$ is country $c$'s inequality deviation from its observed country mean, and $G^B_c$ is its centred country mean. The combined specification adds one later-period interaction:
+
+$$
+Trust_{ict} = \beta_0 + \beta_W G^W_{ct}
++ \beta_B G^B_c
++ \theta \left(G^W_{ct} \times PostR9_t\right)
++ \mathbf X_{ict}'\boldsymbol\gamma + \delta_t + u_c + v_{ct}
++ \varepsilon_{ict}.
+$$
+
+Here $PostR9_t=1$ for rounds 10 and 11 and 0 for rounds 1–9. Consequently, $\beta_W$ is the earlier-period slope, $\beta_W+\theta$ is the later-period slope, and $\theta$ is the direct slope-difference test. A separate `PostR9` main effect is omitted because full ESS-round fixed effects ($\delta_t$) already absorb it. The separate-round analysis instead includes $G^W\times R10$ and $G^W\times R11$ interactions.
+
+**M3** controls for ESS-round fixed effects, age and age squared, gender and years of education. **M4** additionally includes within-country and between-country components of log GDP per capita (PPP) and unemployment. Both models use country and country-round random intercepts, maximum likelihood, the `bobyqa` optimiser and no survey weights, consistent with the established primary specifications. The country means for contextual variables are calculated using one observation per contributing country-round, not respondent weights.
+
+These tests concern variation in *regression slopes*, not whether average trust is higher or lower in the later rounds. The period label is defined by ESS rounds, not by imposing a single interview calendar-year cutoff.
+
+## 1. Separate R10 and R11 slope tests
+
+The first analysis permits two distinct later-round deviations from the earlier-period within-country Gini slope.
+
+```{r}
+#| label: separate-samples
+separate_samples <- read_separate("period_interaction_sample_summary.csv")
+kable(separate_samples,
+      caption = "Analytical samples for the separate R10/R11 tests.")
+```
+
+```{r}
+#| label: separate-slopes
+separate_slopes <- read_separate("period_interaction_slopes.csv")
+kable(
+  separate_slopes |>
+    select(model, effect, estimate, std_error, conf_low, conf_high, p_value),
+  digits = 4,
+  caption = "Implied period-specific within-country Gini slopes (approximate Wald intervals)."
+)
+```
+
+```{r}
+#| label: separate-changes
+separate_tests <- read_separate("period_interaction_tests.csv")
+kable(
+  separate_tests |>
+    select(model, effect, estimate, std_error, conf_low, conf_high, p_value),
+  digits = 4,
+  caption = "Direct tests of differences between individual rounds and the earlier period."
+)
+```
+
+```{r}
+#| label: separate-lrt
+separate_lrt <- read_separate("period_interaction_lrt.csv")
+kable(
+  separate_lrt |>
+    select(model, chisq, df, p_value, AIC_base, AIC_interaction,
+           BIC_base, BIC_interaction),
+  digits = 4,
+  caption = "Joint likelihood-ratio tests (two additional interaction parameters)."
+)
+```
+
+The estimated slopes are very small in R1–R9, R10 and R11. In the macro-adjusted M4 model, the estimated R10 and R11 slope changes are −0.0073 and −0.0025 Gini points, respectively, on the 0–10 trust scale per one Gini point. The two-parameter joint interaction tests do not improve fit (M3 $p=.999$; M4 $p=.984$). The later-round slope confidence intervals are wide, so a lack of evidence for heterogeneity is not proof of identical slopes.
+
+## 2. Combined R10–R11 slope test
+
+The second analysis combines R10 and R11 into one later-period slope modification. This is more parsimonious than treating each late round separately. Its main specification uses the same country-round exposures and within-between components as the primary R1–R11 analysis.
+
+```{r}
+#| label: combined-samples
+combined_samples <- read_combined("sample_summary.csv")
+kable(combined_samples,
+      caption = "Respondents, countries and country-rounds in the combined-period tests.")
+```
+
+The later period contains 47 country-rounds from 29 countries in each model, whereas the earlier period contains 227 country-rounds for M3 and 226 for M4. This asymmetry limits precision for later-period differences. The later-period within-country Gini standard deviation is approximately 1.17, compared with 0.94 in R1–R9: a near-zero coefficient does not arise simply because the measured exposure never varies in R10–R11.
+
+```{r}
+#| label: combined-slopes
+combined_slopes <- read_combined("period_slopes.csv")
+kable(
+  combined_slopes |>
+    select(sample, model, effect, estimate, std_error, conf_low, conf_high, p_value),
+  digits = 4,
+  caption = "Implied earlier and later Gini slopes and the combined slope difference."
+)
+```
+
+```{r}
+#| label: combined-interactions
+combined_tests <- read_combined("interaction_tests.csv")
+kable(
+  combined_tests |>
+    select(sample, model, estimate, std_error, conf_low, conf_high, p_value),
+  digits = 4,
+  caption = "Difference in the R10–R11 and R1–R9 slopes."
+)
+```
+
+The combined later-period interactions are almost zero in M3 (−0.0001, $p=.997$) and M4 (−0.0044, $p=.883$) for the all-mode sample. Nevertheless, the M4 difference has a 95% confidence interval of approximately \[−0.063, 0.054\]. These data provide no detectable evidence of later-period slope heterogeneity, but do not rule out all meaningful changes.
+
+## 3. In-person sensitivity
+
+R10–R11 introduced survey-mode changes. To check whether inclusion of non-in-person respondents is driving the combined results, the same period interaction is re-estimated among respondents with `interview_mode == "In-person"`.
+
+The contextual exposure is held fixed: interview-year shares and country-round contextual decompositions are constructed from the all-mode R1–R11 context, then the *respondent sample* is restricted. Recalculating Gini exposure using only in-person interview-year shares would change the exposure definition as well as the mode composition and would not isolate the intended comparison.
+
+The in-person sample retains all 47 later-period country-rounds. For M3, the sample falls from 499,748 to 496,277 respondents; for M4, from 498,461 to 494,990. Thus the mode restriction removes respondents but not contextual units.
+
+```{r}
+#| label: mode-sensitivity
+mode_comparison <- read_combined("mode_comparison.csv")
+kable(
+  mode_comparison |>
+    select(model, all_mode_estimate, all_mode_se, all_mode_p,
+           inperson_estimate, inperson_se, inperson_p,
+           inperson_minus_all_mode),
+  digits = 4,
+  caption = "Descriptive comparison of all-mode and in-person slope differences."
+)
+```
+
+The M3 interaction moves from −0.0001 (all modes) to +0.0035 (in person); the M4 interaction moves from −0.0044 to −0.0008. This provides no sign of substantive dependence on the inclusion of video interviews. The *difference between the two interaction estimates is descriptive only*: the samples overlap, so it is not an independent-samples significance test.
+
+The restriction does not by itself establish measurement equivalence between the earlier and later ESS rounds. Changes in historical context, country composition, questionnaire implementation and other design features may remain entangled with the period contrast.
+
+## 4. Model comparison and numerical diagnostics
+
+```{r}
+#| label: combined-lrt
+combined_lrt <- read_combined("interaction_lrt.csv")
+kable(
+  combined_lrt |>
+    select(sample, model, chisq, df, p_value,
+           AIC_base, AIC_interaction, BIC_base, BIC_interaction),
+  digits = 4,
+  caption = "One-parameter likelihood-ratio tests, common versus later-period slope."
+)
+```
+
+Neither the separate-round nor the combined-period models improve fit by introducing Gini slope interactions. For the combined analysis, the likelihood-ratio test $p$-values range from .883 to .997 in the all-mode models and from .909 to .978 in the in-person models. In each comparison, AIC and BIC prefer the common-slope specification. Information criteria are compared within matched estimation samples, not across the all-mode and in-person samples.
+
+```{r}
+#| label: diagnostics
+combined_diagnostics <- read_combined("model_diagnostics.csv")
+kable(
+  combined_diagnostics |>
+    select(sample, model, specification, n_respondents,
+           singular, optimizer_code, convergence_message),
+  caption = "Diagnostics for the eight combined-period fits."
+)
+
+if (any(combined_diagnostics$singular, na.rm = TRUE) ||
+    any(!is.na(combined_diagnostics$convergence_message)) ||
+    any(!is.na(combined_diagnostics$optimizer_code) &
+        combined_diagnostics$optimizer_code != 0)) {
+  warning("Inspect combined-period model diagnostics before interpreting results.")
+}
+```
+
+All eight combined-period models fitted without singularity or convergence problems. The separate R10/R11 common-slope and interaction models were also nonsingular.
+
+## Interpretation, limitations and decision
+
+The evidence does not support the proposed claim that the average within-country income-inequality association with generalised trust differed systematically in R10–R11. This conclusion is consistent across models with and without macroeconomic controls, both separate and combined later-round specifications, and the in-person restriction. The point estimates of slope changes are close to zero, although the confidence intervals, particularly for the later period, retain substantial uncertainty.
+
+Interpretation should remain observational. The interaction is not an identified effect of the pandemic or of a general “post-2020” environment. ESS-round boundaries do not correspond exactly to a single calendar-year threshold, and later-round mode and historical changes coincide. The analysis also uses only random intercepts, not country-specific random Gini slopes; it tests average slope differences rather than whether individual countries followed different paths.
+
+**Decision:** Retain the common-slope model as the simpler descriptive specification, document these analyses as completed temporal-sensitivity checks and do not introduce further Gini period interactions without a distinct theoretical reason.
+
+This result concerns income inequality, not the possibility that the association between political discourse and trust varies over time or across groups. The logical next test is a pre-specified interaction between the within-country party hate-speech indicator and the same R10–R11 indicator, on the common complete-case sample from the existing M5 political-discourse model, with an in-person replication. The hate-speech indicator (`party_hate_lag1`) has already been reversed so higher values indicate more hate speech; it must not be reversed again. Its positive within-country coefficient in existing models is descriptive and should not be given a causal or normative interpretation.
+
+## Implementation references
+
+- `04_code/03_models/05_period_interactions.R`
+- `04_code/03_models/13_post_r9_combined_interaction.R`
+- `docs/methods/06_party_hate_moderation.qmd`
+- `docs/methods/07_party_hate_sensitivity_checks.qmd`
+- `docs/methods/10_swiid_uncertainty.qmd`
+
