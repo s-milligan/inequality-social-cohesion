@@ -14,6 +14,18 @@ The moderation question is:
 
 The current empirical analysis operationalises one dimension of political discourse: political parties’ use of group-directed hate speech.
 
+## Working paper
+
+A preliminary manuscript is available:
+
+[Income Inequality, Political Discourse, and Generalised Trust in Europe (14 October 2026)](docs/paper/working_2026-10-14.md)
+
+The working paper presents the current analysis of economic inequality, political discourse and generalised trust using European Social Survey Rounds 1–11. It includes the principal model results, figures and discussion of methodological limitations.
+
+The manuscript is a work in progress. Findings are provisional and may change as further analyses and robustness checks are completed.
+
+The [Quarto source](docs/paper/working_2026-10-14.qmd) and [bibliography](docs/paper/references.bib) are also available.
+
 ## Current status
 
 The project analyses economic inequality, political discourse and generalised trust using European Social Survey (ESS) Rounds 1–11, SWIID income inequality estimates and V-Dem political-context indicators.

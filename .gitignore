@@ -54,6 +54,14 @@ vignettes/*.pdf
 !/docs/figures/
 !/docs/figures/**
 
+# Allow the working paper, bibliography and manuscript figures
+!/docs/paper/
+!/docs/paper/**
+
+# Exclude generated HTML and Quarto support files
+/docs/paper/*.html
+/docs/paper/*_files/
+
 # Generated README HTML
 /README.html
 /03_data/README.html
